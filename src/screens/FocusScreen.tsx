@@ -1,10 +1,10 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   Pressable,
-  Alert,
+  Modal,
   BackHandler,
   AppState,
 } from 'react-native';
@@ -54,6 +54,7 @@ const FocusScreen = () => {
   const completeSession = useTimerStore(s => s.completeSession);
   const reset = useTimerStore(s => s.reset);
   const timerDisplayMode = usePresetStore(s => s.timerDisplayMode);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   useEffect(() => {
     enableImmersiveMode();
@@ -94,21 +95,15 @@ const FocusScreen = () => {
   }, [syncFromNative]);
 
   const handleAbandonAndGoBack = useCallback(() => {
+    setShowAbandonModal(false);
     abandonSession();
     disableImmersiveMode();
     navigation.goBack();
   }, [abandonSession, navigation]);
 
   const showAbandonConfirmation = useCallback(() => {
-    Alert.alert(
-      'abandon this session?',
-      '',
-      [
-        { text: 'keep going', style: 'cancel' },
-        { text: 'abandon', onPress: handleAbandonAndGoBack },
-      ],
-    );
-  }, [handleAbandonAndGoBack]);
+    setShowAbandonModal(true);
+  }, []);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -208,6 +203,38 @@ const FocusScreen = () => {
         ]}>
         <Text style={styles.surfaceText}>surface</Text>
       </Pressable>
+
+      <Modal
+        visible={showAbandonModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAbandonModal(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowAbandonModal(false)}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>abandon this session?</Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setShowAbandonModal(false)}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  pressed && styles.pressedOpacity,
+                ]}>
+                <Text style={styles.modalKeep}>keep going</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleAbandonAndGoBack}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  pressed && styles.pressedOpacity,
+                ]}>
+                <Text style={styles.modalAbandon}>abandon</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -282,6 +309,45 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 14,
     color: colors.text_muted,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBox: {
+    backgroundColor: colors.background_surface,
+    borderRadius: 12,
+    paddingVertical: 32,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    minWidth: 280,
+  },
+  modalTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.body.fontSize,
+    lineHeight: typography.body.lineHeight,
+    color: colors.text_primary,
+    marginBottom: 28,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 32,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  modalKeep: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: colors.text_muted,
+  },
+  modalAbandon: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: colors.accent,
   },
 });
 
