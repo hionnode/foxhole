@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import SettingsScreen from '@/screens/SettingsScreen';
 import FocusScreen from '@/screens/FocusScreen';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
+import { useSessionStore } from '@/stores/sessionStore';
 
 type TabParamList = {
   Home: undefined;
@@ -55,6 +56,12 @@ const TabNavigator = () => {
 };
 
 const App = () => {
+  const initialize = useSessionStore((s) => s.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
   return (
     <NavigationContainer>
       <Stack.Navigator

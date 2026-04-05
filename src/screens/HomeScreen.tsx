@@ -6,6 +6,7 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { useTimerStore } from '@/stores/timerStore';
 import { usePresetStore } from '@/stores/presetStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { isDndAccessGranted, requestDndAccess } from '@/native/DndManager';
 import { formatTime } from '@/utils/formatTime';
 
@@ -36,10 +37,9 @@ const HomeScreen = () => {
 
   const activePreset = getActivePreset();
 
-  // Hardcoded for now until Phase 4 wires up the DB
-  const completedToday = 0;
-  const totalEver = 0;
-  const streakDays = 0;
+  const completedToday = useSessionStore((s) => s.todayCompletedCount);
+  const totalEver = useSessionStore((s) => s.totalEver);
+  const streakDays = useSessionStore((s) => s.currentStreak);
 
   const cycleToNextPreset = useCallback(() => {
     const currentIndex = presets.findIndex((p) => p.id === activePresetId);
