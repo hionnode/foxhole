@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { storage } from './mmkv';
-import type { Preset } from '@/types';
+import type { Preset, TimerDisplayMode } from '@/types';
 
 const MAX_PRESETS = 5;
 const CLASSIC_ID = 'classic';
@@ -33,6 +33,7 @@ interface PresetStore {
   activePresetId: string;
   dailyGoal: number;
   vibrationEnabled: boolean;
+  timerDisplayMode: TimerDisplayMode;
 
   addPreset: (preset: Omit<Preset, 'id'>) => void;
   updatePreset: (id: string, updates: Partial<Omit<Preset, 'id'>>) => void;
@@ -40,6 +41,7 @@ interface PresetStore {
   setActivePreset: (id: string) => void;
   setDailyGoal: (goal: number) => void;
   setVibrationEnabled: (enabled: boolean) => void;
+  setTimerDisplayMode: (mode: TimerDisplayMode) => void;
   getActivePreset: () => Preset;
 }
 
@@ -54,6 +56,7 @@ export const usePresetStore = create<PresetStore>()(
       activePresetId: CLASSIC_ID,
       dailyGoal: 4,
       vibrationEnabled: true,
+      timerDisplayMode: 'digital' as TimerDisplayMode,
 
       addPreset: (preset) => {
         const { presets } = get();
@@ -103,6 +106,10 @@ export const usePresetStore = create<PresetStore>()(
 
       setVibrationEnabled: (enabled) => {
         set({ vibrationEnabled: enabled });
+      },
+
+      setTimerDisplayMode: (mode) => {
+        set({ timerDisplayMode: mode });
       },
 
       getActivePreset: () => {

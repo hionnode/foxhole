@@ -1,5 +1,7 @@
 export type SessionType = 'work' | 'short_break' | 'long_break';
 
+export type TimerDisplayMode = 'digital' | 'blocks';
+
 export interface Preset {
   id: string;
   name: string;

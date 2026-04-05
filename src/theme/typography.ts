@@ -17,6 +17,11 @@ export const typography = {
     fontSize: adjustSize(72),
     lineHeight: adjustSize(80),
   },
+  timerLarge: {
+    fontFamily,
+    fontSize: adjustSize(128),
+    lineHeight: adjustSize(140),
+  },
   heading: {
     fontFamily,
     fontSize: adjustSize(20),
