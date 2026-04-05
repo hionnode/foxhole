@@ -222,6 +222,7 @@ foxhole/
 - Zustand stores: one file per domain, no mega-store
 - Native module bridges: thin TS wrappers that handle promise/error, nothing else
 - Use NativeEventEmitter for native→JS events (not DeviceEventEmitter)
+- Atomic git commits: one logical change per commit (e.g., separate commits for native module, TS bridge, integration). Use conventional commit prefixes (feat:, fix:, chore:, refactor:). Never bundle unrelated changes.
 
 ## What NOT to Build
 
