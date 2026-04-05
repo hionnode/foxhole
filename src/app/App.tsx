@@ -1,28 +1,30 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/theme/colors';
-import { typography } from '@/theme/typography';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import HomeScreen from '@/screens/HomeScreen';
+import FocusScreen from '@/screens/FocusScreen';
+
+type RootStackParamList = {
+  Home: undefined;
+  Focus: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const App = () => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>foxhole</Text>
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName="Home"
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade',
+        }}>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Focus" component={FocusScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background_primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.heading.fontSize,
-    color: colors.text_primary,
-  },
-});
 
 export default App;
