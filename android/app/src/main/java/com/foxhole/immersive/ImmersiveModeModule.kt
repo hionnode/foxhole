@@ -13,7 +13,7 @@ class ImmersiveModeModule(reactContext: ReactApplicationContext) : ReactContextB
 
     @ReactMethod
     fun enable() {
-        val activity = currentActivity ?: return
+        val activity = reactApplicationContext.currentActivity ?: return
         activity.runOnUiThread {
             val window = activity.window
             val controller = WindowInsetsControllerCompat(window, window.decorView)
@@ -25,7 +25,7 @@ class ImmersiveModeModule(reactContext: ReactApplicationContext) : ReactContextB
 
     @ReactMethod
     fun disable() {
-        val activity = currentActivity ?: return
+        val activity = reactApplicationContext.currentActivity ?: return
         activity.runOnUiThread {
             val window = activity.window
             val controller = WindowInsetsControllerCompat(window, window.decorView)
