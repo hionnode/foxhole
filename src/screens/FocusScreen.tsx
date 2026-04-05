@@ -21,7 +21,7 @@ import { useTimerStore } from '@/stores/timerStore';
 import type { SessionType } from '@/types';
 
 type RootStackParamList = {
-  Home: undefined;
+  Tabs: undefined;
   Focus: undefined;
 };
 
