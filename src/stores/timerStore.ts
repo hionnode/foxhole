@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { PomodoroState, Preset } from '@/types';
+import { PomodoroState, Preset, SessionType } from '@/types';
 import {
   createInitialState,
   tick,
@@ -16,6 +16,29 @@ import {
   getRemainingTime,
 } from '@/native/FocusService';
 import { enableDnd, disableDnd } from '@/native/DndManager';
+import { useSessionStore } from './sessionStore';
+
+const logSessionToDb = (
+  sessionType: SessionType,
+  presetName: string,
+  plannedDurationMs: number,
+  startedAt: number,
+  wasCompleted: boolean,
+  wasSkipped: boolean,
+): void => {
+  const now = Date.now();
+  const actualDurationMs = now - startedAt;
+  useSessionStore.getState().logSession({
+    sessionType,
+    presetName,
+    plannedDurationMs,
+    actualDurationMs,
+    startedAt,
+    completedAt: now,
+    wasCompleted,
+    wasSkipped,
+  });
+};
 
 interface TimerStore {
   state: PomodoroState | null;
@@ -24,6 +47,7 @@ interface TimerStore {
   lastTickTime: number | null;
   showingTransition: boolean;
   transitionTimeoutId: ReturnType<typeof setTimeout> | null;
+  sessionStartedAt: number | null;
 
   startSession: (preset: Preset) => void;
   pauseSession: () => void;
@@ -45,6 +69,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   lastTickTime: null,
   showingTransition: false,
   transitionTimeoutId: null,
+  sessionStartedAt: null,
 
   startSession: (preset: Preset) => {
     const { intervalId, transitionTimeoutId } = get();
@@ -73,6 +98,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       lastTickTime: now,
       showingTransition: false,
       transitionTimeoutId: null,
+      sessionStartedAt: now,
     });
   },
 
@@ -114,8 +140,8 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   },
 
   abandonSession: () => {
-    const { state, intervalId, transitionTimeoutId } = get();
-    if (!state) {
+    const { state, activePreset, intervalId, transitionTimeoutId, sessionStartedAt } = get();
+    if (!state || !activePreset) {
       return;
     }
     if (intervalId) {
@@ -128,22 +154,49 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     stopFocusService().catch(() => {});
     disableDnd().catch(() => {});
 
+    // Log the abandoned session
+    if (sessionStartedAt) {
+      const plannedMs = getSessionDurationMs(state.currentSession, activePreset);
+      logSessionToDb(
+        state.currentSession,
+        activePreset.name,
+        plannedMs,
+        sessionStartedAt,
+        false,
+        false,
+      );
+    }
+
     set({
       state: abandonEngine(state),
       intervalId: null,
       lastTickTime: null,
       showingTransition: false,
       transitionTimeoutId: null,
+      sessionStartedAt: null,
     });
   },
 
   skipSession: () => {
-    const { state, activePreset, intervalId } = get();
+    const { state, activePreset, intervalId, sessionStartedAt } = get();
     if (!state || !activePreset) {
       return;
     }
     if (intervalId) {
       clearInterval(intervalId);
+    }
+
+    // Log the skipped break session
+    if (sessionStartedAt) {
+      const plannedMs = getSessionDurationMs(state.currentSession, activePreset);
+      logSessionToDb(
+        state.currentSession,
+        activePreset.name,
+        plannedMs,
+        sessionStartedAt,
+        false,
+        true,
+      );
     }
 
     const nextState = skipEngine(state, activePreset);
@@ -163,16 +216,30 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       lastTickTime: now,
       showingTransition: false,
       transitionTimeoutId: null,
+      sessionStartedAt: now,
     });
   },
 
   completeSession: () => {
-    const { state, activePreset, intervalId } = get();
+    const { state, activePreset, intervalId, sessionStartedAt } = get();
     if (!state || !activePreset) {
       return;
     }
     if (intervalId) {
       clearInterval(intervalId);
+    }
+
+    // Log the completed session
+    if (sessionStartedAt) {
+      const plannedMs = getSessionDurationMs(state.currentSession, activePreset);
+      logSessionToDb(
+        state.currentSession,
+        activePreset.name,
+        plannedMs,
+        sessionStartedAt,
+        true,
+        false,
+      );
     }
 
     const nextState = complete(state, activePreset);
@@ -214,6 +281,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       lastTickTime: now,
       showingTransition: false,
       transitionTimeoutId: null,
+      sessionStartedAt: now,
     });
   },
 
@@ -288,6 +356,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       lastTickTime: null,
       showingTransition: false,
       transitionTimeoutId: null,
+      sessionStartedAt: null,
     });
   },
 }));
