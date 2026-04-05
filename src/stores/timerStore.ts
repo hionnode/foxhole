@@ -10,6 +10,12 @@ import {
   resume as resumeEngine,
   getSessionDurationMs,
 } from '@/utils/pomodoroEngine';
+import {
+  startFocusService,
+  stopFocusService,
+  getRemainingTime,
+} from '@/native/FocusService';
+import { enableDnd, disableDnd } from '@/native/DndManager';
 
 interface TimerStore {
   state: PomodoroState | null;
@@ -26,6 +32,8 @@ interface TimerStore {
   skipSession: () => void;
   completeSession: () => void;
   tickTimer: () => void;
+  syncFromNative: () => void;
+  updateRemainingMs: (remainingMs: number) => void;
   startNextSession: () => void;
   reset: () => void;
 }
@@ -48,6 +56,13 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     }
 
     const initialState = createInitialState(preset);
+    const durationMs = getSessionDurationMs('work', preset);
+
+    // Start native foreground service and DND
+    startFocusService(durationMs, 'work').catch(() => {});
+    enableDnd(true).catch(() => {});
+
+    // Keep JS interval as a fallback for UI updates when native ticks aren't arriving
     const now = Date.now();
     const newIntervalId = setInterval(() => get().tickTimer(), 100);
 
@@ -69,6 +84,9 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     if (intervalId) {
       clearInterval(intervalId);
     }
+    // Stop the native service on pause (pausing a foreground service is complex)
+    stopFocusService().catch(() => {});
+
     set({
       state: pauseEngine(state),
       intervalId: null,
@@ -77,10 +95,14 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   },
 
   resumeSession: () => {
-    const { state } = get();
-    if (!state || !state.isPaused) {
+    const { state, activePreset } = get();
+    if (!state || !state.isPaused || !activePreset) {
       return;
     }
+
+    // Restart the native service with remaining time
+    startFocusService(state.remainingMs, state.currentSession).catch(() => {});
+
     const now = Date.now();
     const newIntervalId = setInterval(() => get().tickTimer(), 100);
 
@@ -102,6 +124,10 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     if (transitionTimeoutId) {
       clearTimeout(transitionTimeoutId);
     }
+    // Stop native service and restore DND
+    stopFocusService().catch(() => {});
+    disableDnd().catch(() => {});
+
     set({
       state: abandonEngine(state),
       intervalId: null,
@@ -121,6 +147,13 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     }
 
     const nextState = skipEngine(state, activePreset);
+    const durationMs = getSessionDurationMs(nextState.currentSession, activePreset);
+
+    // Restart native service with new session
+    stopFocusService()
+      .then(() => startFocusService(durationMs, nextState.currentSession))
+      .catch(() => {});
+
     const now = Date.now();
     const newIntervalId = setInterval(() => get().tickTimer(), 100);
 
@@ -142,8 +175,6 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       clearInterval(intervalId);
     }
 
-    // TODO: trigger completion sound here when FocusService is implemented (Phase 2)
-
     const nextState = complete(state, activePreset);
 
     const timeoutId = setTimeout(() => {
@@ -164,6 +195,11 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     if (!state || !activePreset) {
       return;
     }
+
+    const durationMs = getSessionDurationMs(state.currentSession, activePreset);
+
+    // Start native service for next session
+    startFocusService(durationMs, state.currentSession).catch(() => {});
 
     const now = Date.now();
     const newIntervalId = setInterval(() => get().tickTimer(), 100);
@@ -203,6 +239,36 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     });
   },
 
+  syncFromNative: () => {
+    getRemainingTime().then(remainingMs => {
+      const { state } = get();
+      if (!state || !state.isRunning || state.isPaused) {
+        return;
+      }
+      if (remainingMs > 0) {
+        set({
+          state: { ...state, remainingMs },
+          lastTickTime: Date.now(),
+        });
+      }
+    }).catch(() => {});
+  },
+
+  updateRemainingMs: (remainingMs: number) => {
+    const { state } = get();
+    if (!state || !state.isRunning || state.isPaused) {
+      return;
+    }
+    if (remainingMs <= 0) {
+      get().completeSession();
+      return;
+    }
+    set({
+      state: { ...state, remainingMs },
+      lastTickTime: Date.now(),
+    });
+  },
+
   reset: () => {
     const { intervalId, transitionTimeoutId } = get();
     if (intervalId) {
@@ -211,6 +277,10 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     if (transitionTimeoutId) {
       clearTimeout(transitionTimeoutId);
     }
+    // Clean up native resources
+    stopFocusService().catch(() => {});
+    disableDnd().catch(() => {});
+
     set({
       state: null,
       activePreset: null,

@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { useTimerStore } from '@/stores/timerStore';
+import { isDndAccessGranted, requestDndAccess } from '@/native/DndManager';
 import type { Preset } from '@/types';
 
 type RootStackParamList = {
@@ -27,10 +28,40 @@ const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNav>();
   const startSession = useTimerStore(s => s.startSession);
 
-  const handleDigIn = useCallback(() => {
+  const beginSession = useCallback(() => {
     startSession(DEFAULT_PRESET);
     navigation.navigate('Focus');
   }, [startSession, navigation]);
+
+  const handleDigIn = useCallback(async () => {
+    try {
+      const granted = await isDndAccessGranted();
+      if (!granted) {
+        Alert.alert(
+          'do not disturb access needed',
+          'foxhole needs dnd access to silence notifications during focus sessions. phone calls will still come through.',
+          [
+            {
+              text: 'grant access',
+              onPress: () => {
+                requestDndAccess().catch(() => {});
+              },
+            },
+            {
+              text: 'continue without dnd',
+              style: 'cancel',
+              onPress: beginSession,
+            },
+          ],
+        );
+        return;
+      }
+      beginSession();
+    } catch {
+      // If DND check fails, proceed anyway
+      beginSession();
+    }
+  }, [beginSession]);
 
   return (
     <View style={styles.container}>

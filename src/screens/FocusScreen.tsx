@@ -6,6 +6,7 @@ import {
   Pressable,
   Alert,
   BackHandler,
+  AppState,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,6 +15,8 @@ import { typography } from '@/theme/typography';
 import { formatTime } from '@/utils/formatTime';
 import { getSessionDurationMs } from '@/utils/pomodoroEngine';
 import { enableImmersiveMode, disableImmersiveMode } from '@/native/ImmersiveMode';
+import { addTickListener, addCompleteListener } from '@/native/FocusService';
+import { disableDnd } from '@/native/DndManager';
 import { useTimerStore } from '@/stores/timerStore';
 import type { SessionType } from '@/types';
 
@@ -43,6 +46,9 @@ const FocusScreen = () => {
   const abandonSession = useTimerStore(s => s.abandonSession);
   const skipSession = useTimerStore(s => s.skipSession);
   const startNextSession = useTimerStore(s => s.startNextSession);
+  const syncFromNative = useTimerStore(s => s.syncFromNative);
+  const updateRemainingMs = useTimerStore(s => s.updateRemainingMs);
+  const completeSession = useTimerStore(s => s.completeSession);
   const reset = useTimerStore(s => s.reset);
 
   useEffect(() => {
@@ -51,6 +57,37 @@ const FocusScreen = () => {
       disableImmersiveMode();
     };
   }, []);
+
+  // Subscribe to native tick and complete events
+  useEffect(() => {
+    const tickSub = addTickListener((remainingMs: number) => {
+      updateRemainingMs(remainingMs);
+    });
+
+    const completeSub = addCompleteListener(() => {
+      completeSession();
+    });
+
+    return () => {
+      tickSub.remove();
+      completeSub.remove();
+    };
+  }, [updateRemainingMs, completeSession]);
+
+  // Resync timer when app comes back to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        syncFromNative();
+        // Re-enable immersive mode (may have been lost during phone call)
+        enableImmersiveMode();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [syncFromNative]);
 
   const handleAbandonAndGoBack = useCallback(() => {
     abandonSession();
