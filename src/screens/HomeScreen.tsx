@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
@@ -28,6 +28,7 @@ const formatDate = (): string => {
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNav>();
+  const isFocused = useIsFocused();
   const startSession = useTimerStore((s) => s.startSession);
   const getActivePreset = usePresetStore((s) => s.getActivePreset);
   const presets = usePresetStore((s) => s.presets);
@@ -40,6 +41,16 @@ const HomeScreen = () => {
   const completedToday = useSessionStore((s) => s.todayCompletedCount);
   const totalEver = useSessionStore((s) => s.totalEver);
   const streakDays = useSessionStore((s) => s.currentStreak);
+
+  const [dndGranted, setDndGranted] = useState(true);
+
+  useEffect(() => {
+    if (isFocused) {
+      isDndAccessGranted()
+        .then((granted) => setDndGranted(granted))
+        .catch(() => {});
+    }
+  }, [isFocused]);
 
   const cycleToNextPreset = useCallback(() => {
     const currentIndex = presets.findIndex((p) => p.id === activePresetId);
@@ -150,6 +161,9 @@ const HomeScreen = () => {
             </Text>
           </>
         )}
+        {!dndGranted && (
+          <Text style={styles.dndNote}>dnd not enabled</Text>
+        )}
       </View>
     </View>
   );
@@ -228,6 +242,13 @@ const styles = StyleSheet.create({
     lineHeight: typography.label.lineHeight,
     color: colors.text_muted,
     marginTop: 4,
+  },
+  dndNote: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.label.fontSize,
+    lineHeight: typography.label.lineHeight,
+    color: colors.text_muted,
+    marginTop: 8,
   },
 });
 
