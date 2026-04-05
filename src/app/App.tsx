@@ -1,8 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationProp,
+} from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigationContainerRef } from '@react-navigation/native';
+import OnboardingScreen, {
+  isOnboardingComplete,
+} from '@/screens/OnboardingScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import HistoryScreen from '@/screens/HistoryScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
@@ -10,6 +17,7 @@ import FocusScreen from '@/screens/FocusScreen';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { useSessionStore } from '@/stores/sessionStore';
+import { isFocusServiceRunning } from '@/native/FocusService';
 
 type TabParamList = {
   Home: undefined;
@@ -18,6 +26,7 @@ type TabParamList = {
 };
 
 type RootStackParamList = {
+  Onboarding: undefined;
   Tabs: undefined;
   Focus: undefined;
 };
@@ -55,21 +64,50 @@ const TabNavigator = () => {
   );
 };
 
+const onboardingDone = isOnboardingComplete();
+
 const App = () => {
   const initialize = useSessionStore((s) => s.initialize);
+  const navigationRef =
+    useNavigationContainerRef<RootStackParamList>();
+  const hasCheckedRecovery = useRef(false);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
+  // Process death recovery: if the native FocusService is still running
+  // when the app starts, auto-navigate to FocusScreen so the existing
+  // AppState + tick listener resync logic picks up the session.
+  useEffect(() => {
+    if (hasCheckedRecovery.current) {
+      return;
+    }
+    hasCheckedRecovery.current = true;
+
+    if (!onboardingDone) {
+      return;
+    }
+
+    isFocusServiceRunning()
+      .then((running) => {
+        if (running && navigationRef.isReady()) {
+          navigationRef.navigate('Focus');
+        }
+      })
+      .catch(() => {});
+  }, [navigationRef]);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
-        initialRouteName="Tabs"
+        initialRouteName={onboardingDone ? 'Tabs' : 'Onboarding'}
         screenOptions={{
           headerShown: false,
           animation: 'fade',
+          animationDuration: 200,
         }}>
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Tabs" component={TabNavigator} />
         <Stack.Screen name="Focus" component={FocusScreen} />
       </Stack.Navigator>
