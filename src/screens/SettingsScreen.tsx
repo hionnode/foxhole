@@ -13,7 +13,7 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { Stepper } from '@/components/Stepper';
 import { usePresetStore } from '@/stores/presetStore';
-import type { Preset } from '@/types';
+import type { Preset, TimerDisplayMode } from '@/types';
 
 const CLASSIC_ID = 'classic';
 
@@ -26,12 +26,14 @@ const SettingsScreen = () => {
   const activePresetId = usePresetStore((s) => s.activePresetId);
   const dailyGoal = usePresetStore((s) => s.dailyGoal);
   const vibrationEnabled = usePresetStore((s) => s.vibrationEnabled);
+  const timerDisplayMode = usePresetStore((s) => s.timerDisplayMode);
   const addPreset = usePresetStore((s) => s.addPreset);
   const updatePreset = usePresetStore((s) => s.updatePreset);
   const deletePreset = usePresetStore((s) => s.deletePreset);
   const setActivePreset = usePresetStore((s) => s.setActivePreset);
   const setDailyGoal = usePresetStore((s) => s.setDailyGoal);
   const setVibrationEnabled = usePresetStore((s) => s.setVibrationEnabled);
+  const setTimerDisplayMode = usePresetStore((s) => s.setTimerDisplayMode);
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -155,6 +157,36 @@ const SettingsScreen = () => {
         />
       </View>
 
+      <Text style={styles.sectionHeader}>timer display</Text>
+      <Pressable
+        onPress={() => setTimerDisplayMode('digital')}
+        style={({ pressed }) => [
+          styles.displayOption,
+          pressed && styles.pressed,
+        ]}>
+        <View style={styles.presetInfo}>
+          <Text style={styles.presetName}>digital</Text>
+          <Text style={styles.presetSummary}>large countdown</Text>
+        </View>
+        {timerDisplayMode === 'digital' ? (
+          <Text style={styles.checkmark}>{'\u2713'}</Text>
+        ) : null}
+      </Pressable>
+      <Pressable
+        onPress={() => setTimerDisplayMode('blocks')}
+        style={({ pressed }) => [
+          styles.displayOption,
+          pressed && styles.pressed,
+        ]}>
+        <View style={styles.presetInfo}>
+          <Text style={styles.presetName}>blocks</Text>
+          <Text style={styles.presetSummary}>circular ring</Text>
+        </View>
+        {timerDisplayMode === 'blocks' ? (
+          <Text style={styles.checkmark}>{'\u2713'}</Text>
+        ) : null}
+      </Pressable>
+
       <Text style={styles.sectionHeader}>about</Text>
       <Text style={styles.aboutText}>foxhole v1.0.0</Text>
     </ScrollView>
@@ -244,6 +276,15 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   presetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background_surface,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 8,
+  },
+  displayOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
