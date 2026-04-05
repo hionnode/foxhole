@@ -1,7 +1,7 @@
 package com.foxhole.immersive
 
+import android.content.pm.ActivityInfo
 import android.view.WindowManager
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.facebook.react.bridge.ReactApplicationContext
@@ -20,6 +20,7 @@ class ImmersiveModeModule(reactContext: ReactApplicationContext) : ReactContextB
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
     }
 
@@ -31,6 +32,7 @@ class ImmersiveModeModule(reactContext: ReactApplicationContext) : ReactContextB
             val controller = WindowInsetsControllerCompat(window, window.decorView)
             controller.show(WindowInsetsCompat.Type.systemBars())
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
 }
