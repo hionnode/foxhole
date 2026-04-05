@@ -17,6 +17,7 @@
     "react": "19.2.3",
     "react-native": "0.84.1",
     "react-native-mmkv": "^4.3.0",
+    "react-native-nitro-modules": "^0.35.3",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.24.0",
     "zustand": "^5.0.12"
