@@ -18,6 +18,9 @@ import { enableImmersiveMode, disableImmersiveMode } from '@/native/ImmersiveMod
 import { addTickListener, addCompleteListener } from '@/native/FocusService';
 import { disableDnd } from '@/native/DndManager';
 import { useTimerStore } from '@/stores/timerStore';
+import { usePresetStore } from '@/stores/presetStore';
+import { DigitalTimer } from '@/components/DigitalTimer';
+import { BlockTimer } from '@/components/BlockTimer';
 import type { SessionType } from '@/types';
 
 type RootStackParamList = {
@@ -50,6 +53,7 @@ const FocusScreen = () => {
   const updateRemainingMs = useTimerStore(s => s.updateRemainingMs);
   const completeSession = useTimerStore(s => s.completeSession);
   const reset = useTimerStore(s => s.reset);
+  const timerDisplayMode = usePresetStore(s => s.timerDisplayMode);
 
   useEffect(() => {
     enableImmersiveMode();
@@ -166,16 +170,35 @@ const FocusScreen = () => {
     );
   }
 
+  const totalMs = getSessionDurationMs(state.currentSession, activePreset);
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.timer}>{formatTime(state.remainingMs)}</Text>
-        <Text style={styles.sessionLabel}>
-          {getSessionLabel(state.currentSession)}
-        </Text>
-        <Text style={styles.cycleLabel}>
-          round {state.cyclePosition} of {activePreset.cyclesBeforeLongBreak}
-        </Text>
+        {timerDisplayMode === 'blocks' ? (
+          <BlockTimer
+            remainingMs={state.remainingMs}
+            totalMs={totalMs}
+            sessionType={state.currentSession}
+          />
+        ) : (
+          <DigitalTimer remainingMs={state.remainingMs} />
+        )}
+        {timerDisplayMode === 'digital' && (
+          <>
+            <Text style={styles.sessionLabel}>
+              {getSessionLabel(state.currentSession)}
+            </Text>
+            <Text style={styles.cycleLabel}>
+              round {state.cyclePosition} of {activePreset.cyclesBeforeLongBreak}
+            </Text>
+          </>
+        )}
+        {timerDisplayMode === 'blocks' && (
+          <Text style={styles.cycleLabel}>
+            round {state.cyclePosition} of {activePreset.cyclesBeforeLongBreak}
+          </Text>
+        )}
       </View>
       <Pressable
         onPress={showAbandonConfirmation}
