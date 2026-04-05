@@ -11,6 +11,9 @@ import {
   getLocalDateString,
   updateStreakOnCompletion,
 } from '@/utils/streakCalculator';
+import { storage } from './mmkv';
+
+const LAST_REFRESH_DATE_KEY = 'last_refresh_date';
 
 const getStartOfDay = (date?: Date): number => {
   const d = date ?? new Date();
@@ -72,6 +75,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   refreshTodayCount: () => {
     const startOfDay = getStartOfDay();
     const endOfDay = getEndOfDay();
+    storage.set(LAST_REFRESH_DATE_KEY, getLocalDateString());
 
     getCompletedWorkSessionCountForDate(startOfDay, endOfDay)
       .then((count) => {
@@ -114,6 +118,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   initialize: () => {
     if (get().isInitialized) {
       return;
+    }
+
+    // Check for midnight rollover: if the stored date differs from today,
+    // refresh today's count (which will be 0 for a new day) and recalculate streak
+    const today = getLocalDateString();
+    const lastRefresh = storage.getString(LAST_REFRESH_DATE_KEY);
+    if (lastRefresh !== today) {
+      storage.set(LAST_REFRESH_DATE_KEY, today);
     }
 
     // Load streak data from MMKV (synchronous)
