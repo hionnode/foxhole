@@ -77,7 +77,7 @@ const getStatusLabel = (session: Session): string | null => {
   return null;
 };
 
-const SessionRow = ({ session }: { session: Session }) => {
+const SessionRow = React.memo(({ session }: { session: Session }) => {
   const statusLabel = getStatusLabel(session);
   const isMuted = statusLabel !== null;
   const textColor = isMuted ? colors.text_muted : colors.text_body;
@@ -85,11 +85,11 @@ const SessionRow = ({ session }: { session: Session }) => {
   return (
     <View style={styles.sessionRow}>
       <View style={styles.sessionTopRow}>
-        <Text style={[styles.sessionTime, { color: textColor }]}>
+        <Text style={[styles.sessionText, { color: textColor }]}>
           {formatStartTime(session.startedAt)}
         </Text>
-        <Text style={[styles.sessionDot, { color: textColor }]}>{' \u00b7 '}</Text>
-        <Text style={[styles.sessionDuration, { color: textColor }]}>
+        <Text style={[styles.sessionText, { color: textColor }]}>{' \u00b7 '}</Text>
+        <Text style={[styles.sessionText, { color: textColor }]}>
           {formatDuration(session.actualDurationMs)}
         </Text>
       </View>
@@ -97,14 +97,14 @@ const SessionRow = ({ session }: { session: Session }) => {
         <Text style={[styles.sessionType, { color: textColor }]}>
           {getSessionTypeLabel(session)}
         </Text>
-        <Text style={[styles.sessionDot, { color: textColor }]}>{' \u00b7 '}</Text>
+        <Text style={[styles.sessionText, { color: textColor }]}>{' \u00b7 '}</Text>
         <Text style={[styles.sessionPreset, { color: textColor }]}>
           {statusLabel ?? session.presetName}
         </Text>
       </View>
     </View>
   );
-};
+});
 
 const SectionHeader = ({ title }: { title: string }) => (
   <View style={styles.sectionHeader}>
@@ -235,19 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
-  sessionTime: {
-    fontFamily: typography.fontFamily,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text_body,
-  },
-  sessionDot: {
-    fontFamily: typography.fontFamily,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text_body,
-  },
-  sessionDuration: {
+  sessionText: {
     fontFamily: typography.fontFamily,
     fontSize: 14,
     lineHeight: 20,

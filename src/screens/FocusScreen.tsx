@@ -52,7 +52,6 @@ const FocusScreen = () => {
   const syncFromNative = useTimerStore(s => s.syncFromNative);
   const updateRemainingMs = useTimerStore(s => s.updateRemainingMs);
   const completeSession = useTimerStore(s => s.completeSession);
-  const reset = useTimerStore(s => s.reset);
   const timerDisplayMode = usePresetStore(s => s.timerDisplayMode);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
 
@@ -248,12 +247,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  timer: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.timer.fontSize,
-    lineHeight: typography.timer.lineHeight,
-    color: colors.text_body,
   },
   sessionLabel: {
     fontFamily: typography.fontFamily,
