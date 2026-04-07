@@ -69,7 +69,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         });
         get().refreshAllSessions();
       })
-      .catch(() => {});
+      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
   },
 
   refreshTodayCount: () => {
@@ -81,7 +81,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       .then((count) => {
         set({ todayCompletedCount: count });
       })
-      .catch(() => {});
+      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
   },
 
   refreshAllSessions: () => {
@@ -89,7 +89,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       .then((sessions) => {
         set({ allSessions: sessions });
       })
-      .catch(() => {});
+      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
   },
 
   recalculateStreak: () => {
@@ -139,7 +139,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       .then((count) => {
         set({ totalEver: count });
       })
-      .catch(() => {});
+      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
 
     // Load all sessions for history
     get().refreshAllSessions();

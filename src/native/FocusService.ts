@@ -1,11 +1,12 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
+import type { SessionType } from '@/types';
 
 const { FocusServiceModule } = NativeModules;
 const eventEmitter = Platform.OS === 'android'
   ? new NativeEventEmitter(FocusServiceModule)
   : null;
 
-export const startFocusService = (durationMs: number, sessionType: string): Promise<void> => {
+export const startFocusService = (durationMs: number, sessionType: SessionType): Promise<void> => {
   if (Platform.OS !== 'android') {
     return Promise.resolve();
   }

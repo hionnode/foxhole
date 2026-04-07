@@ -26,7 +26,11 @@ export const getStreakData = (): StreakData => {
   if (!raw) {
     return { currentStreak: 0, lastActiveDate: '' };
   }
-  return JSON.parse(raw) as StreakData;
+  try {
+    return JSON.parse(raw) as StreakData;
+  } catch {
+    return { currentStreak: 0, lastActiveDate: '' };
+  }
 };
 
 export const updateStreakOnCompletion = (): number => {
