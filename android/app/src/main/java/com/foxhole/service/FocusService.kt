@@ -30,6 +30,10 @@ class FocusService : Service() {
         const val ALERT_NOTIFICATION_ID = 1002
         const val ALARM_REQUEST_CODE = 2001
 
+        const val TICK_INTERVAL_MS = 1000L
+        const val WAKELOCK_BUFFER_MS = 60_000L
+        val VIBRATION_PATTERN = longArrayOf(0, 500, 200, 500)
+
         const val ACTION_START = "com.foxhole.service.ACTION_START"
         const val ACTION_STOP = "com.foxhole.service.ACTION_STOP"
         const val ACTION_ALARM_FIRED = "com.foxhole.service.ACTION_ALARM_FIRED"
@@ -79,7 +83,7 @@ class FocusService : Service() {
             updateNotification(remaining)
             // Send tick event via the module's event emitter
             FocusServiceModule.sendTickEvent(remaining)
-            handler.postDelayed(this, 1000)
+            handler.postDelayed(this, TICK_INTERVAL_MS)
         }
     }
 
@@ -151,7 +155,7 @@ class FocusService : Service() {
             .putLong(KEY_DURATION_MS, duration)
             .putString(KEY_SESSION_TYPE, type)
             .putBoolean(KEY_SERVICE_ACTIVE, true)
-            .apply()
+            .commit()
 
         // Acquire partial wake lock to keep the handler running
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -159,7 +163,7 @@ class FocusService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "foxhole:focus_timer"
         ).apply {
-            acquire(duration + 60_000) // duration + 1 minute buffer
+            acquire(duration + WAKELOCK_BUFFER_MS)
         }
 
         // Build notification BEFORE calling startForeground
@@ -192,13 +196,15 @@ class FocusService : Service() {
         clearPersistedState()
 
         // Play sound
+        var mediaPlayer: MediaPlayer? = null
         try {
             val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val mediaPlayer = MediaPlayer.create(this, uri)
+            mediaPlayer = MediaPlayer.create(this, uri)
             mediaPlayer?.setOnCompletionListener { mp -> mp.release() }
             mediaPlayer?.start()
         } catch (_: Exception) {
-            // Sound playback is best-effort
+            // Sound playback is best-effort; release on failure
+            mediaPlayer?.release()
         }
 
         // Vibrate
@@ -206,11 +212,11 @@ class FocusService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
                 val vibrator = vm.defaultVibrator
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
+                vibrator.vibrate(VibrationEffect.createWaveform(VIBRATION_PATTERN, -1))
             } else {
                 @Suppress("DEPRECATION")
                 val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
+                vibrator.vibrate(VibrationEffect.createWaveform(VIBRATION_PATTERN, -1))
             }
         } catch (_: Exception) {
             // Vibration is best-effort
