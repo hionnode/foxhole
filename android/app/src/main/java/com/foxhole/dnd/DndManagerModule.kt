@@ -44,13 +44,13 @@ class DndManagerModule(reactContext: ReactApplicationContext) : ReactContextBase
                 return
             }
 
-            // Save current interruption filter to SharedPreferences
+            // Save current state and mark DND as active in a single atomic transaction
             val prefs = reactApplicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val currentFilter = nm.currentInterruptionFilter
             prefs.edit()
                 .putInt(KEY_PREVIOUS_DND_STATE, currentFilter)
                 .putBoolean(KEY_DND_ACTIVE, true)
-                .apply()
+                .commit()
 
             // Set notification policy to allow priority calls if requested
             if (allowCalls) {
