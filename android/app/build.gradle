@@ -72,6 +72,12 @@ def enableProguardInReleaseBuilds = true
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -83,7 +89,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
     }
     signingConfigs {
         debug {
@@ -91,6 +97,14 @@ android {
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
+        }
+        release {
+            if (keystoreProperties['FOXHOLE_RELEASE_STORE_FILE']) {
+                storeFile file(keystoreProperties['FOXHOLE_RELEASE_STORE_FILE'])
+                storePassword keystoreProperties['FOXHOLE_RELEASE_STORE_PASSWORD']
+                keyAlias keystoreProperties['FOXHOLE_RELEASE_KEY_ALIAS']
+                keyPassword keystoreProperties['FOXHOLE_RELEASE_KEY_PASSWORD']
+            }
         }
     }
     buildTypes {
