@@ -42,7 +42,7 @@ const App = {
     el.textContent = `${month} ${day}`;
   },
 
-  // Render vernier caliper measuring day of year
+  // Render massive vernier caliper spanning viewport width
   renderCaliper() {
     const container = document.getElementById('caliperContainer');
     if (!container) return;
@@ -53,108 +53,127 @@ const App = {
     const dayOfYear = Math.ceil((today - startOfYear) / 86400000);
     const totalDays = ((today.getFullYear() % 4 === 0) ? 366 : 365);
 
-    const w = 300, h = 36;
-    const beamLeft = 12, beamRight = w - 12;
+    const w = 1800, h = 80;
+    const beamLeft = 40, beamRight = w - 40;
     const beamWidth = beamRight - beamLeft;
     const jawX = beamLeft + (dayOfYear / totalDays) * beamWidth;
+    const jawH = 24; // jaw extension beyond beam
 
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('width', w);
-    svg.setAttribute('height', h + 16);
-    svg.setAttribute('viewBox', `0 0 ${w} ${h + 16}`);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-    // Main beam
+    // Main beam body
     const beam = document.createElementNS(ns, 'rect');
     beam.setAttribute('x', beamLeft);
-    beam.setAttribute('y', 4);
+    beam.setAttribute('y', jawH);
     beam.setAttribute('width', beamWidth);
-    beam.setAttribute('height', h - 8);
-    beam.setAttribute('fill', 'none');
+    beam.setAttribute('height', h - jawH * 2);
+    beam.setAttribute('fill', 'rgba(60, 56, 54, 0.15)');
     beam.setAttribute('stroke', '#504945');
-    beam.setAttribute('stroke-width', '1');
-    beam.setAttribute('rx', '1');
+    beam.setAttribute('stroke-width', '1.5');
+    beam.setAttribute('rx', '2');
     svg.appendChild(beam);
 
-    // Fixed jaw (left)
-    const fixedJaw = document.createElementNS(ns, 'line');
-    fixedJaw.setAttribute('x1', beamLeft);
-    fixedJaw.setAttribute('y1', 0);
-    fixedJaw.setAttribute('x2', beamLeft);
-    fixedJaw.setAttribute('y2', h);
+    // Fixed jaw (left) — tall block
+    const fixedJaw = document.createElementNS(ns, 'rect');
+    fixedJaw.setAttribute('x', beamLeft - 8);
+    fixedJaw.setAttribute('y', 0);
+    fixedJaw.setAttribute('width', 16);
+    fixedJaw.setAttribute('height', h);
+    fixedJaw.setAttribute('fill', 'rgba(80, 73, 69, 0.3)');
     fixedJaw.setAttribute('stroke', '#a89984');
-    fixedJaw.setAttribute('stroke-width', '2');
+    fixedJaw.setAttribute('stroke-width', '1.5');
+    fixedJaw.setAttribute('rx', '1');
     svg.appendChild(fixedJaw);
 
-    // Sliding jaw
-    const slidingJaw = document.createElementNS(ns, 'line');
-    slidingJaw.setAttribute('x1', jawX);
-    slidingJaw.setAttribute('y1', 0);
-    slidingJaw.setAttribute('x2', jawX);
-    slidingJaw.setAttribute('y2', h);
+    // Sliding jaw — tall block at day position
+    const slidingJaw = document.createElementNS(ns, 'rect');
+    slidingJaw.setAttribute('x', jawX - 6);
+    slidingJaw.setAttribute('y', 0);
+    slidingJaw.setAttribute('width', 12);
+    slidingJaw.setAttribute('height', h);
+    slidingJaw.setAttribute('fill', 'rgba(80, 73, 69, 0.2)');
     slidingJaw.setAttribute('stroke', '#ebdbb2');
     slidingJaw.setAttribute('stroke-width', '2');
+    slidingJaw.setAttribute('rx', '1');
     svg.appendChild(slidingJaw);
 
-    // Depth rod (extends right from sliding jaw)
+    // Depth rod extending right from sliding jaw
     const depthRod = document.createElementNS(ns, 'line');
-    depthRod.setAttribute('x1', jawX);
+    depthRod.setAttribute('x1', jawX + 6);
     depthRod.setAttribute('y1', h / 2);
     depthRod.setAttribute('x2', beamRight);
     depthRod.setAttribute('y2', h / 2);
     depthRod.setAttribute('stroke', '#504945');
-    depthRod.setAttribute('stroke-width', '0.75');
+    depthRod.setAttribute('stroke-width', '1');
     svg.appendChild(depthRod);
 
     // Month ticks along top of beam
-    const months = ['j','f','m','a','m','j','j','a','s','o','n','d'];
+    const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
     const daysInMonths = [31,28,31,30,31,30,31,31,30,31,30,31];
     if (totalDays === 366) daysInMonths[1] = 29;
     let cumDays = 0;
     for (let i = 0; i < 12; i++) {
       const mx = beamLeft + (cumDays / totalDays) * beamWidth;
+      // Major month tick
       const tick = document.createElementNS(ns, 'line');
       tick.setAttribute('x1', mx);
-      tick.setAttribute('y1', 4);
+      tick.setAttribute('y1', jawH);
       tick.setAttribute('x2', mx);
-      tick.setAttribute('y2', 12);
-      tick.setAttribute('stroke', '#504945');
+      tick.setAttribute('y2', jawH + 14);
+      tick.setAttribute('stroke', '#a89984');
       tick.setAttribute('stroke-width', '1');
       svg.appendChild(tick);
 
+      // Month label
       const label = document.createElementNS(ns, 'text');
-      label.setAttribute('x', mx + 3);
-      label.setAttribute('y', 11);
+      label.setAttribute('x', mx + 6);
+      label.setAttribute('y', jawH + 12);
       label.setAttribute('fill', '#504945');
-      label.setAttribute('font-size', '7');
+      label.setAttribute('font-size', '11');
       label.setAttribute('font-family', "'0xProto', monospace");
       label.textContent = months[i];
       svg.appendChild(label);
 
+      // Minor ticks within month
+      for (let d = 7; d < daysInMonths[i]; d += 7) {
+        const dx = beamLeft + ((cumDays + d) / totalDays) * beamWidth;
+        const minor = document.createElementNS(ns, 'line');
+        minor.setAttribute('x1', dx);
+        minor.setAttribute('y1', jawH);
+        minor.setAttribute('x2', dx);
+        minor.setAttribute('y2', jawH + 8);
+        minor.setAttribute('stroke', '#504945');
+        minor.setAttribute('stroke-width', '0.5');
+        svg.appendChild(minor);
+      }
+
       cumDays += daysInMonths[i];
     }
 
-    // Vernier scale (fine ticks around sliding jaw)
-    for (let i = -5; i <= 5; i++) {
-      const vx = jawX + i * 2.5;
+    // Vernier scale — fine ticks clustered on sliding jaw
+    for (let i = -8; i <= 8; i++) {
+      const vx = jawX + i * 4;
       if (vx < beamLeft || vx > beamRight) continue;
       const vtick = document.createElementNS(ns, 'line');
       vtick.setAttribute('x1', vx);
-      vtick.setAttribute('y1', h - 8);
+      vtick.setAttribute('y1', h - jawH);
       vtick.setAttribute('x2', vx);
-      vtick.setAttribute('y2', h - 3);
+      vtick.setAttribute('y2', h - jawH + (i % 5 === 0 ? 10 : 6));
       vtick.setAttribute('stroke', '#a89984');
-      vtick.setAttribute('stroke-width', '0.5');
+      vtick.setAttribute('stroke-width', i % 5 === 0 ? '1' : '0.5');
       svg.appendChild(vtick);
     }
 
-    // Reading label
+    // Reading label below sliding jaw
     const reading = document.createElementNS(ns, 'text');
     reading.setAttribute('x', jawX);
-    reading.setAttribute('y', h + 12);
+    reading.setAttribute('y', h - 4);
     reading.setAttribute('text-anchor', 'middle');
-    reading.setAttribute('fill', '#a89984');
-    reading.setAttribute('font-size', '10');
+    reading.setAttribute('fill', '#d65d0e');
+    reading.setAttribute('font-size', '12');
     reading.setAttribute('font-family', "'0xProto', monospace");
     reading.textContent = `day ${dayOfYear}`;
     svg.appendChild(reading);
@@ -162,7 +181,7 @@ const App = {
     container.appendChild(svg);
   },
 
-  // Render ruler measuring best current streak
+  // Render massive ruler spanning viewport width
   async renderRuler(habits, entries, freezes) {
     const container = document.getElementById('streakRuler');
     if (!container) return;
@@ -178,150 +197,205 @@ const App = {
     }
 
     const ns = 'http://www.w3.org/2000/svg';
-    const w = container.offsetWidth || 720;
-    const h = 28;
+    const w = 1800, h = 48;
 
     const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-    // Ruler body
+    // Ruler body — tall, full width
     const body = document.createElementNS(ns, 'rect');
     body.setAttribute('x', 0);
     body.setAttribute('y', 0);
     body.setAttribute('width', w);
     body.setAttribute('height', h);
-    body.setAttribute('fill', 'rgba(60, 56, 54, 0.2)');
+    body.setAttribute('fill', 'rgba(60, 56, 54, 0.12)');
     body.setAttribute('stroke', '#504945');
     body.setAttribute('stroke-width', '1');
-    body.setAttribute('rx', '1');
+    body.setAttribute('rx', '2');
     svg.appendChild(body);
 
-    if (bestStreak === 0) {
-      const label = document.createElementNS(ns, 'text');
-      label.setAttribute('x', 8);
-      label.setAttribute('y', 18);
-      label.setAttribute('fill', '#504945');
-      label.setAttribute('font-size', '9');
-      label.setAttribute('font-family', "'0xProto', monospace");
-      label.textContent = '0';
-      svg.appendChild(label);
-      container.appendChild(svg);
-      return;
+    // Top and bottom edge lines (ruler edges)
+    for (const y of [6, h - 6]) {
+      const edge = document.createElementNS(ns, 'line');
+      edge.setAttribute('x1', 0);
+      edge.setAttribute('y1', y);
+      edge.setAttribute('x2', w);
+      edge.setAttribute('y2', y);
+      edge.setAttribute('stroke', '#504945');
+      edge.setAttribute('stroke-width', '0.5');
+      svg.appendChild(edge);
     }
 
-    // Cap displayed ticks to a reasonable number
-    const maxDisplay = Math.min(bestStreak, 120);
-    const tickSpacing = (w - 16) / maxDisplay;
+    // Generate tick marks — always show at least 30 days for scale
+    const maxDisplay = Math.max(bestStreak, 30);
+    const tickSpacing = (w - 80) / maxDisplay;
 
     for (let i = 0; i <= maxDisplay; i++) {
-      const x = 8 + i * tickSpacing;
-      const isMajor = i % 5 === 0;
+      const x = 40 + i * tickSpacing;
+      const isMajor = i % 10 === 0;
+      const isMid = i % 5 === 0;
 
+      const tickH = isMajor ? 20 : (isMid ? 14 : 8);
+
+      // Top ticks
       const tick = document.createElementNS(ns, 'line');
       tick.setAttribute('x1', x);
-      tick.setAttribute('y1', isMajor ? 6 : 10);
+      tick.setAttribute('y1', 6);
       tick.setAttribute('x2', x);
-      tick.setAttribute('y2', 18);
+      tick.setAttribute('y2', 6 + tickH);
       tick.setAttribute('stroke', isMajor ? '#a89984' : '#504945');
-      tick.setAttribute('stroke-width', isMajor ? '0.75' : '0.5');
+      tick.setAttribute('stroke-width', isMajor ? '1.5' : (isMid ? '1' : '0.5'));
       svg.appendChild(tick);
 
-      // Number at every 5th or 10th tick
-      if (i > 0 && i % (maxDisplay > 50 ? 10 : 5) === 0) {
+      // Bottom ticks (mirrored)
+      const btick = document.createElementNS(ns, 'line');
+      btick.setAttribute('x1', x);
+      btick.setAttribute('y1', h - 6);
+      btick.setAttribute('x2', x);
+      btick.setAttribute('y2', h - 6 - tickH);
+      btick.setAttribute('stroke', isMajor ? '#a89984' : '#504945');
+      btick.setAttribute('stroke-width', isMajor ? '1.5' : (isMid ? '1' : '0.5'));
+      svg.appendChild(btick);
+
+      // Number labels at major ticks
+      if (isMajor && i > 0) {
         const num = document.createElementNS(ns, 'text');
         num.setAttribute('x', x);
-        num.setAttribute('y', 24);
+        num.setAttribute('y', h / 2 + 4);
         num.setAttribute('text-anchor', 'middle');
         num.setAttribute('fill', '#a89984');
-        num.setAttribute('font-size', '8');
+        num.setAttribute('font-size', '11');
         num.setAttribute('font-family', "'0xProto', monospace");
         num.textContent = String(i);
         svg.appendChild(num);
       }
     }
 
-    // Accent triangle at streak position
-    const markerX = 8 + maxDisplay * tickSpacing;
-    const triangle = document.createElementNS(ns, 'polygon');
-    triangle.setAttribute('points', `${markerX-4},2 ${markerX+4},2 ${markerX},8`);
-    triangle.setAttribute('fill', '#d65d0e');
-    svg.appendChild(triangle);
+    // Accent marker at best streak position
+    if (bestStreak > 0) {
+      const markerX = 40 + bestStreak * tickSpacing;
+      // Down-pointing triangle
+      const tri = document.createElementNS(ns, 'polygon');
+      tri.setAttribute('points', `${markerX-6},0 ${markerX+6},0 ${markerX},10`);
+      tri.setAttribute('fill', '#d65d0e');
+      svg.appendChild(tri);
+      // Up-pointing triangle
+      const tri2 = document.createElementNS(ns, 'polygon');
+      tri2.setAttribute('points', `${markerX-6},${h} ${markerX+6},${h} ${markerX},${h-10}`);
+      tri2.setAttribute('fill', '#d65d0e');
+      svg.appendChild(tri2);
+
+      // Streak label
+      const label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', markerX);
+      label.setAttribute('y', h / 2 + 4);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('fill', '#d65d0e');
+      label.setAttribute('font-size', '12');
+      label.setAttribute('font-family', "'0xProto', monospace");
+      label.textContent = `${bestStreak}d`;
+      svg.appendChild(label);
+    }
 
     container.appendChild(svg);
   },
 
-  // Render protractor showing habit completion percentage
+  // Render large protractor in bottom-right corner
   renderProtractor(completed, total) {
     const container = document.getElementById('protractorContainer');
     if (!container) return;
     container.innerHTML = '';
 
     const pct = total > 0 ? completed / total : 0;
-    const angle = pct * Math.PI; // 0 to PI (180 degrees)
+    const angle = pct * Math.PI;
 
     const ns = 'http://www.w3.org/2000/svg';
-    const w = 120, h = 70;
-    const cx = w / 2, cy = h - 8;
-    const r = 48;
+    const w = 280, h = 160;
+    const cx = w / 2, cy = h - 16;
+    const r = 120;
 
     const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('width', w);
     svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-    // Semi-circle arc
+    // Outer arc
     const arc = document.createElementNS(ns, 'path');
-    const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
-    arc.setAttribute('d', arcPath);
+    arc.setAttribute('d', `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`);
     arc.setAttribute('fill', 'none');
     arc.setAttribute('stroke', '#504945');
-    arc.setAttribute('stroke-width', '1.5');
+    arc.setAttribute('stroke-width', '2');
     svg.appendChild(arc);
+
+    // Inner arc
+    const innerR = r - 20;
+    const innerArc = document.createElementNS(ns, 'path');
+    innerArc.setAttribute('d', `M ${cx - innerR} ${cy} A ${innerR} ${innerR} 0 0 1 ${cx + innerR} ${cy}`);
+    innerArc.setAttribute('fill', 'none');
+    innerArc.setAttribute('stroke', '#3c3836');
+    innerArc.setAttribute('stroke-width', '1');
+    svg.appendChild(innerArc);
 
     // Baseline
     const baseline = document.createElementNS(ns, 'line');
-    baseline.setAttribute('x1', cx - r - 4);
+    baseline.setAttribute('x1', cx - r - 8);
     baseline.setAttribute('y1', cy);
-    baseline.setAttribute('x2', cx + r + 4);
+    baseline.setAttribute('x2', cx + r + 8);
     baseline.setAttribute('y2', cy);
     baseline.setAttribute('stroke', '#504945');
-    baseline.setAttribute('stroke-width', '1');
+    baseline.setAttribute('stroke-width', '1.5');
     svg.appendChild(baseline);
 
-    // Tick marks (every 15 degrees)
-    for (let deg = 0; deg <= 180; deg += 15) {
+    // Tick marks every 10 degrees, labels every 30
+    for (let deg = 0; deg <= 180; deg += 10) {
       const rad = (deg * Math.PI) / 180;
-      const isMajor = deg % 45 === 0;
-      const innerR = isMajor ? r - 8 : r - 5;
+      const isMajor = deg % 30 === 0;
+      const isMid = deg % 10 === 0;
+      const outerR = r;
+      const tickInner = isMajor ? r - 16 : r - 10;
 
-      const x1 = cx - Math.cos(rad) * r;
-      const y1 = cy - Math.sin(rad) * r;
-      const x2 = cx - Math.cos(rad) * innerR;
-      const y2 = cy - Math.sin(rad) * innerR;
+      const x1 = cx - Math.cos(rad) * outerR;
+      const y1 = cy - Math.sin(rad) * outerR;
+      const x2 = cx - Math.cos(rad) * tickInner;
+      const y2 = cy - Math.sin(rad) * tickInner;
 
       const tick = document.createElementNS(ns, 'line');
       tick.setAttribute('x1', x1);
       tick.setAttribute('y1', y1);
       tick.setAttribute('x2', x2);
       tick.setAttribute('y2', y2);
-      tick.setAttribute('stroke', isMajor ? '#504945' : '#3c3836');
-      tick.setAttribute('stroke-width', isMajor ? '1' : '0.75');
+      tick.setAttribute('stroke', isMajor ? '#a89984' : '#504945');
+      tick.setAttribute('stroke-width', isMajor ? '1.5' : '0.75');
       svg.appendChild(tick);
+
+      // Degree labels at 30-degree intervals
+      if (isMajor) {
+        const labelR = r - 24;
+        const lx = cx - Math.cos(rad) * labelR;
+        const ly = cy - Math.sin(rad) * labelR;
+        const degLabel = document.createElementNS(ns, 'text');
+        degLabel.setAttribute('x', lx);
+        degLabel.setAttribute('y', ly + 3);
+        degLabel.setAttribute('text-anchor', 'middle');
+        degLabel.setAttribute('fill', '#504945');
+        degLabel.setAttribute('font-size', '9');
+        degLabel.setAttribute('font-family', "'0xProto', monospace");
+        degLabel.textContent = `${deg}`;
+        svg.appendChild(degLabel);
+      }
     }
 
-    // Needle (accent orange — the star of the show)
-    const needleX = cx - Math.cos(angle) * (r - 4);
-    const needleY = cy - Math.sin(angle) * (r - 4);
+    // Needle — accent orange
+    const needleX = cx - Math.cos(angle) * (r - 6);
+    const needleY = cy - Math.sin(angle) * (r - 6);
     const needle = document.createElementNS(ns, 'line');
     needle.setAttribute('x1', cx);
     needle.setAttribute('y1', cy);
     needle.setAttribute('x2', needleX);
     needle.setAttribute('y2', needleY);
     needle.setAttribute('stroke', '#d65d0e');
-    needle.setAttribute('stroke-width', '1.5');
+    needle.setAttribute('stroke-width', '2');
     needle.setAttribute('stroke-linecap', 'round');
     svg.appendChild(needle);
 
@@ -329,17 +403,19 @@ const App = {
     const pivot = document.createElementNS(ns, 'circle');
     pivot.setAttribute('cx', cx);
     pivot.setAttribute('cy', cy);
-    pivot.setAttribute('r', '2');
-    pivot.setAttribute('fill', '#a89984');
+    pivot.setAttribute('r', '4');
+    pivot.setAttribute('fill', '#504945');
+    pivot.setAttribute('stroke', '#a89984');
+    pivot.setAttribute('stroke-width', '1');
     svg.appendChild(pivot);
 
     // Percentage label
     const label = document.createElementNS(ns, 'text');
     label.setAttribute('x', cx);
-    label.setAttribute('y', cy - 10);
+    label.setAttribute('y', cy - 28);
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('fill', '#a89984');
-    label.setAttribute('font-size', '10');
+    label.setAttribute('font-size', '16');
     label.setAttribute('font-family', "'0xProto', monospace");
     label.textContent = `${Math.round(pct * 100)}%`;
     svg.appendChild(label);

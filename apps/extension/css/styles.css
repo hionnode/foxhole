@@ -162,40 +162,60 @@ body {
   color: var(--text-primary);
 }
 
-/* ============ Instruments ============ */
+/* ============ Background Instruments ============ */
 
-.caliper {
-  margin-top: 8px;
-  opacity: 0.75;
-}
-
-.caliper svg {
-  display: block;
-}
-
-.streak-ruler {
-  margin: -16px -8px 0;
-  width: calc(100% + 16px);
-}
-
-.streak-ruler svg {
-  display: block;
-  width: 100%;
-}
-
-.section-habits {
-  position: relative;
-}
-
-.protractor {
-  position: absolute;
-  top: -20px;
-  right: 0;
+.instrument-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.container {
+  position: relative;
   z-index: 1;
 }
 
-.protractor svg {
+.bg-caliper {
+  position: absolute;
+  top: 80px;
+  left: -5vw;
+  width: 110vw;
+  opacity: 0.35;
+}
+
+.bg-caliper svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bg-ruler {
+  position: absolute;
+  top: 280px;
+  left: -5vw;
+  width: 110vw;
+  opacity: 0.3;
+}
+
+.bg-ruler svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bg-protractor {
+  position: absolute;
+  bottom: 40px;
+  right: -40px;
+  opacity: 0.25;
+}
+
+.bg-protractor svg {
   display: block;
 }
 

@@ -7,17 +7,20 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <!-- Viewport-scale background instruments -->
+  <div class="instrument-layer">
+    <div class="bg-caliper" id="caliperContainer"></div>
+    <div class="bg-ruler" id="streakRuler"></div>
+    <div class="bg-protractor" id="protractorContainer"></div>
+  </div>
+
   <main class="container" role="main">
     <header class="page-header">
       <h1 class="page-title">foxhole</h1>
       <span class="date-label" id="dateLabel"></span>
-      <div class="caliper" id="caliperContainer"></div>
     </header>
 
-    <div class="streak-ruler" id="streakRuler"></div>
-
     <section class="section-habits">
-      <div class="protractor" id="protractorContainer"></div>
       <div class="section-header">
         <h2>habits</h2>
         <span class="habit-progress" id="habitProgress"></span>
