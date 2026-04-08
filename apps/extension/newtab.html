@@ -14,11 +14,34 @@
     <div class="bg-protractor" id="protractorContainer"></div>
   </div>
 
+  <!-- Pomodoro Focus Overlay -->
+  <div class="pomo-overlay" id="pomoOverlay" role="region" aria-label="pomodoro timer" aria-live="polite">
+    <div class="pomo-overlay-content">
+      <span class="pomo-session-label" id="pomoSessionLabel">work</span>
+      <div class="pomo-timer" id="pomoTimer">25:00</div>
+      <span class="pomo-cycle" id="pomoCycle">round 1 of 4</span>
+      <div class="pomo-controls">
+        <button class="pomo-btn pomo-btn-secondary" id="pomoPauseBtn">pause</button>
+        <button class="pomo-btn pomo-btn-secondary" id="pomoSkipBtn" style="display: none;">skip break</button>
+        <button class="pomo-btn pomo-btn-muted" id="pomoSurfaceBtn">surface</button>
+      </div>
+    </div>
+    <button class="pomo-peek-btn" id="pomoPeekBtn">peek at dashboard</button>
+  </div>
+
   <main class="container" role="main">
     <header class="page-header">
       <h1 class="page-title">foxhole</h1>
       <span class="date-label" id="dateLabel"></span>
     </header>
+
+    <section class="section-pomo" id="pomoSection">
+      <div class="pomo-idle">
+        <span class="pomo-preset-label" id="pomoPresetLabel">classic — 25m</span>
+        <button class="pomo-start-btn" id="pomoStartBtn">dig in</button>
+        <span class="pomo-today-count" id="pomoTodayCount"></span>
+      </div>
+    </section>
 
     <section class="section-habits">
       <div class="section-header">
@@ -241,6 +264,7 @@
   <script src="js/website-chart.js"></script>
   <script src="js/a11y.js"></script>
   <script src="js/toast.js"></script>
+  <script src="js/pomodoro.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

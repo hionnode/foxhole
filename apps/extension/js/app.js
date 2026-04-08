@@ -28,7 +28,9 @@ const App = {
     await this.updateHabitCounterWithData(habits, entries);
     await this.renderRuler(habits, entries, freezes);
     await this.initWebsitesSection();
+    await this.initPomodoro();
     this.bindEvents();
+    this.bindPomodoroEvents();
   },
 
   // Render date label (e.g. "apr 8")
@@ -40,6 +42,205 @@ const App = {
     const month = today.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
     const day = today.getDate();
     el.textContent = `${month} ${day}`;
+  },
+
+  // ============== Pomodoro Methods ==============
+
+  pomodoroState: null,
+  pomodoroLocalInterval: null,
+  pomoPeekTimeout: null,
+
+  async initPomodoro() {
+    // Get current state from background
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_POMODORO_STATE' });
+      if (response && response.state && response.state.status !== 'idle') {
+        this.pomodoroState = response.state;
+        this.renderPomodoroActive(response.state);
+      } else {
+        await this.renderPomodoroIdle();
+      }
+    } catch (e) {
+      await this.renderPomodoroIdle();
+    }
+
+    // Listen for state updates from background
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === 'POMODORO_STATE') {
+        this.pomodoroState = message.state;
+        if (message.state) {
+          this.renderPomodoroActive(message.state);
+        } else {
+          this.renderPomodoroIdle();
+        }
+      }
+    });
+
+    // Start local countdown interval for smooth updates
+    this.pomodoroLocalInterval = setInterval(() => {
+      if (!this.pomodoroState || this.pomodoroState.status !== 'running') return;
+      const elapsed = Math.floor((Date.now() - this.pomodoroState.startedAt) / 1000);
+      const remaining = Math.max(0, this.pomodoroState.totalSeconds - elapsed);
+      const timerEl = document.getElementById('pomoTimer');
+      if (timerEl) timerEl.textContent = Pomodoro.formatTimer(remaining);
+    }, 1000);
+  },
+
+  async renderPomodoroIdle() {
+    this.pomodoroState = null;
+    const overlay = document.getElementById('pomoOverlay');
+    const section = document.getElementById('pomoSection');
+    if (overlay) overlay.classList.remove('active');
+    if (section) section.style.display = '';
+
+    // Load today's session count
+    const today = Storage.formatDate(new Date());
+    try {
+      const result = await chrome.storage.local.get(['pomodoroSessions']);
+      const sessions = result.pomodoroSessions || {};
+      const todaySessions = (sessions[today] || []).filter(s => s.sessionType === 'work' && s.wasCompleted);
+      const countEl = document.getElementById('pomoTodayCount');
+      if (countEl) {
+        if (todaySessions.length > 0) {
+          countEl.textContent = `${todaySessions.length} of 4 today`;
+        } else {
+          countEl.textContent = 'your first session starts here';
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  renderPomodoroActive(state) {
+    const overlay = document.getElementById('pomoOverlay');
+    const section = document.getElementById('pomoSection');
+    if (!overlay) return;
+
+    overlay.classList.add('active');
+    overlay.classList.remove('peeking');
+    if (section) section.style.display = 'none';
+
+    // Timer
+    const timerEl = document.getElementById('pomoTimer');
+    if (timerEl) {
+      if (state.status === 'running') {
+        const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+        const remaining = Math.max(0, state.totalSeconds - elapsed);
+        timerEl.textContent = Pomodoro.formatTimer(remaining);
+      } else {
+        timerEl.textContent = Pomodoro.formatTimer(state.remainingSeconds);
+      }
+    }
+
+    // Session label
+    const labelEl = document.getElementById('pomoSessionLabel');
+    if (labelEl) labelEl.textContent = Pomodoro.formatSessionType(state.sessionType);
+
+    // Cycle
+    const cycleEl = document.getElementById('pomoCycle');
+    if (cycleEl) {
+      cycleEl.textContent = `round ${state.cyclePosition} of ${state.preset.cyclesBeforeLongBreak}`;
+    }
+
+    // Pause button
+    const pauseBtn = document.getElementById('pomoPauseBtn');
+    if (pauseBtn) {
+      pauseBtn.textContent = state.status === 'paused' ? 'resume' : 'pause';
+    }
+
+    // Skip button (only during breaks)
+    const skipBtn = document.getElementById('pomoSkipBtn');
+    if (skipBtn) {
+      skipBtn.style.display = (state.sessionType !== 'work') ? '' : 'none';
+    }
+  },
+
+  bindPomodoroEvents() {
+    // Start button
+    const startBtn = document.getElementById('pomoStartBtn');
+    if (startBtn) {
+      startBtn.addEventListener('click', async () => {
+        try {
+          await chrome.runtime.sendMessage({
+            type: 'START_POMODORO',
+            preset: Pomodoro.DEFAULT_PRESET
+          });
+        } catch (e) {
+          Toast.error('failed to start timer');
+        }
+      });
+    }
+
+    // Pause/Resume button
+    const pauseBtn = document.getElementById('pomoPauseBtn');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', async () => {
+        if (!this.pomodoroState) return;
+        const type = this.pomodoroState.status === 'paused' ? 'RESUME_POMODORO' : 'PAUSE_POMODORO';
+        try {
+          await chrome.runtime.sendMessage({ type });
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
+
+    // Skip button
+    const skipBtn = document.getElementById('pomoSkipBtn');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', async () => {
+        try {
+          await chrome.runtime.sendMessage({ type: 'SKIP_POMODORO' });
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
+
+    // Surface (abandon) button
+    const surfaceBtn = document.getElementById('pomoSurfaceBtn');
+    if (surfaceBtn) {
+      surfaceBtn.addEventListener('click', async () => {
+        const confirmed = await Confirm.show({
+          title: 'surface',
+          message: 'abandon this session? incomplete sessions don\'t count.',
+          confirmText: 'surface',
+          cancelText: 'stay',
+          destructive: true
+        });
+        if (confirmed) {
+          try {
+            await chrome.runtime.sendMessage({ type: 'ABANDON_POMODORO' });
+          } catch (e) {
+            // ignore
+          }
+        }
+      });
+    }
+
+    // Peek button
+    const peekBtn = document.getElementById('pomoPeekBtn');
+    if (peekBtn) {
+      peekBtn.addEventListener('click', () => {
+        const overlay = document.getElementById('pomoOverlay');
+        if (!overlay) return;
+        overlay.classList.add('peeking');
+        if (this.pomoPeekTimeout) clearTimeout(this.pomoPeekTimeout);
+        this.pomoPeekTimeout = setTimeout(() => {
+          overlay.classList.remove('peeking');
+        }, 5000);
+      });
+    }
+
+    // Click anywhere to un-peek
+    document.addEventListener('click', (e) => {
+      const overlay = document.getElementById('pomoOverlay');
+      if (overlay && overlay.classList.contains('peeking') && !e.target.closest('.pomo-peek-btn')) {
+        overlay.classList.remove('peeking');
+        if (this.pomoPeekTimeout) clearTimeout(this.pomoPeekTimeout);
+      }
+    });
   },
 
   // Render massive vernier caliper spanning viewport width
