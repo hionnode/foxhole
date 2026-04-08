@@ -1,10 +1,14 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# CLAUDE.md — Foxhole Extension
 
 ## Project Overview
 
-Chrome extension (Manifest V3) that replaces the new tab page with a habit tracker and website time tracker. Features year-at-a-glance habit visualizations and website usage monitoring with daily time limits.
+Chrome extension (Manifest V3) that replaces the new tab page with a habit tracker and website time tracker. Single-column brutalist layout using the gruvbox color palette and 0xProto monospace font. Part of the Foxhole monorepo.
+
+## Design System
+
+- **Colors:** 6 gruvbox colors only — `#282828` (bg), `#3c3836` (surface), `#504945` (elevated/border), `#ebdbb2` (text primary), `#d5c4a1` (text body), `#a89984` (text muted), `#d65d0e` (accent, sparingly)
+- **Font:** 0xProto monospace, 3 sizes: 20px heading, 16px body, 12px label
+- **Rules:** All lowercase text. No shadows, no gradients, no animations except `opacity 0.1s`. Border-radius 2px max.
 
 ## Development
 
@@ -19,15 +23,21 @@ Chrome extension (Manifest V3) that replaces the new tab page with a habit track
 ## Architecture
 
 ```
-newtab.html          Entry point, loads all JS in order
+newtab.html          Entry point, single-column layout, loads JS in order
+fonts/0xProto-Regular.ttf  Monospace font (loaded via @font-face)
+css/styles.css       Gruvbox brutalist stylesheet (~400 lines)
 js/storage.js        Data layer using chrome.storage.local
-js/habits.js         Habit logic (create, streak calculation, colors)
-js/chart.js          SVG year chart rendering (main + mini per-habit)
+js/habits.js         Habit logic (create, streak calculation, monochrome colors)
+js/chart.js          SVG year chart rendering (monochrome)
 js/websites.js       Website utilities (time formatting, categories, trends)
+js/website-chart.js  Weekly/monthly trend chart SVGs (monochrome)
+js/a11y.js           Accessibility utilities (focus trap, screen reader)
+js/toast.js          Toast notifications + confirm dialogs
 js/app.js            UI controller, event binding, render orchestration
 js/background.js     Service worker for website time tracking
-js/content.js        Blocking overlay with breathing exercises
-css/styles.css       Dark theme, three-column layout
+js/content.js        Blocking overlay (minimal text, no breathing exercise)
+js/blocked.js        Blocked page domain/limit display
+blocked.html         Static blocked page (gruvbox styled)
 ```
 
 **Data flow:**
@@ -35,7 +45,7 @@ css/styles.css       Dark theme, three-column layout
 - Websites: `background.js` (tracking) → `Storage` → `Websites` (utilities) → `App` (display)
 - Blocking: `background.js` (limit check) → `content.js` (overlay injection)
 
-**Key globals:** `Storage`, `Habits`, `Chart`, `Websites`, `App` - all defined on window, loaded sequentially.
+**Key globals:** `Storage`, `Habits`, `Chart`, `Websites`, `WebsiteChart`, `App`, `Toast`, `Confirm`, `A11y` - all defined on window, loaded sequentially.
 
 ## Data Model
 
@@ -57,79 +67,41 @@ css/styles.css       Dark theme, three-column layout
 
 // Website Category
 { id: string, name: string, color: string }
-
-// Storage structure
-{
-  habits: [],
-  entries: { 'YYYY-MM-DD': { habitId: entry } },
-  streakFreezes: { habitId: ['YYYY-MM-DD', ...] },
-  websiteEntries: { 'YYYY-MM-DD': { domain: websiteEntry } },
-  websiteSettings: { domain: settings },
-  websiteCategories: []
-}
 ```
 
 ## Features
 
 ### Habit Tracking
 - Binary (done/not done) and count-based habits
-- Year-at-a-glance visualization (7 columns × 53 rows)
-- Streak calculation and display (inline next to habit names)
+- Year-at-a-glance monochrome visualization (7 columns x 53 rows)
+- Streak calculation (displayed as plain numbers, e.g. "7d")
 - Maximum 5 habits
-- **Habit editing** - modify name, type, target without deleting
-- **Habit templates** - quick-start with Exercise, Read, Meditate, Water, Sleep
-- **Backfill entries** - edit habits for past dates (not just today)
-- **Streak freeze** - protect streak on missed days (grace day feature)
-- **Daily progress ring** - visual indicator showing completion status
+- Habit editing, templates, backfill entries, streak freeze
 
 ### Website Time Tracking
 - Automatic tracking via background service worker
 - Idle detection (pauses after 60s of inactivity)
 - Per-domain daily time limits
-- Category assignment (Productivity, Code, Social, Entertainment)
-- Weekly/monthly trend data
+- Category assignment (text labels, no color rendering)
+- Weekly/monthly monochrome trend charts
 
 ### Blocking System
-- When daily limit exceeded, content script injects full-page overlay
-- Ultra-minimal breathing exercise UI (reduces friction)
-- Four breathing styles: Box, Deep, Anulom Vilom, Conscious
-- Configurable duration: 1, 2, 3, or 5 minutes
-- Default: Box breathing, 2 minutes
-- Settings hidden behind gear icon (power users only)
+- Content script injects full-page overlay when daily limit exceeded
+- Minimal text: "time's up." + domain name + limit info
+- Gruvbox styled (#282828 bg, 0xProto font)
+- Irrevocable (MutationObserver prevents removal, keyboard blocked)
 - Blocks reset at midnight
 
 ## Security
 
-**XSS Prevention:** All user-provided data (habit names, category names, domains) must use safe DOM methods:
-- Use `textContent` instead of `innerHTML` for text content
-- Use `createElement` + `appendChild` for dynamic HTML
-- Use `dataset` for data attributes
-- `Storage.sanitizeString()` available for import validation
-- **Audited 2026-02:** All dynamic content rendering verified to use safe DOM methods
+**XSS Prevention:** All user-provided data uses safe DOM methods (`textContent`, `createElement`). `Storage.sanitizeString()` for import validation.
 
-**Import Validation:** `Storage.importData()` sanitizes all string fields and validates structure before saving.
-
-**Permissions:** Extension uses minimal required permissions:
-- `storage` - Store habit and website data locally
-- `tabs` - Track active tab for website time tracking
-- `idle` - Detect user inactivity to pause tracking
-- `alarms` - Periodic saves and daily limit resets
-- Host permissions limited to `http://` and `https://` (excludes chrome://, file://, etc.)
-
-## Storage Management
-
-**Automatic Cleanup:** To prevent unbounded storage growth:
-- Website entries older than 90 days are automatically pruned
-- Habit entries older than 400 days (~13 months) are pruned
-- Cleanup runs daily via background service worker alarm
-- Manual cleanup available via `Storage.runCleanup()`
+**Permissions:** `storage`, `tabs`, `idle`, `alarms`, host permissions for http/https only.
 
 ## Constraints
 
 - Maximum 5 habits (enforced in `Storage.saveHabit()`)
-- Date format: `YYYY-MM-DD` throughout (use `Storage.formatDate()`)
-- Year charts are vertical: 7 columns (days) × 53 rows (weeks)
-- Website tracking only for http/https URLs (skips chrome://, etc.)
+- Date format: `YYYY-MM-DD` throughout
+- Website tracking only for http/https URLs
 - Content script runs at `document_start` for early blocking
-- Habits can only be edited for past/present dates, not future
-- Website data retained for 90 days, habit data for 400 days
+- Website data retained 90 days, habit data 400 days
