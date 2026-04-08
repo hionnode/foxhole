@@ -1,55 +1,290 @@
-// Background service worker for website time tracking
+// Background service worker for website time tracking and pomodoro timer
+
+importScripts('pomodoro.js');
+
+// ============ Pomodoro Timer ============
+
+const PomodoroTimer = {
+  state: null,
+  tickAlarmName: 'pomodoroTick',
+
+  async init() {
+    await this.restoreState();
+    if (this.state && this.state.status === 'running') {
+      this.startTickAlarm();
+    }
+  },
+
+  async restoreState() {
+    try {
+      const result = await chrome.storage.local.get(['pomodoroState']);
+      this.state = result.pomodoroState || null;
+    } catch (e) {
+      this.state = null;
+    }
+  },
+
+  async persistState() {
+    try {
+      await chrome.storage.local.set({ pomodoroState: this.state });
+    } catch (e) {
+      // silently fail
+    }
+  },
+
+  startTickAlarm() {
+    chrome.alarms.create(this.tickAlarmName, { periodInMinutes: 0.5 });
+  },
+
+  stopTickAlarm() {
+    chrome.alarms.clear(this.tickAlarmName);
+  },
+
+  async start(preset) {
+    if (this.state && this.state.status === 'running') return;
+
+    this.state = Pomodoro.createInitialState(preset);
+    this.state.startedAt = Date.now();
+    await this.persistState();
+    this.startTickAlarm();
+    await this.broadcastState();
+  },
+
+  async pause() {
+    if (!this.state || this.state.status !== 'running') return;
+
+    const elapsed = Math.floor((Date.now() - this.state.startedAt) / 1000);
+    this.state.remainingSeconds = Math.max(0, this.state.totalSeconds - elapsed);
+    this.state.status = 'paused';
+    this.state.pausedAt = Date.now();
+    this.stopTickAlarm();
+    await this.persistState();
+    await this.broadcastState();
+  },
+
+  async resume() {
+    if (!this.state || this.state.status !== 'paused') return;
+
+    this.state.status = 'running';
+    this.state.startedAt = Date.now();
+    this.state.totalSeconds = this.state.remainingSeconds;
+    this.state.pausedAt = null;
+    await this.persistState();
+    this.startTickAlarm();
+    await this.broadcastState();
+  },
+
+  async skip() {
+    if (!this.state || this.state.status === 'idle') return;
+
+    const wasWork = this.state.sessionType === 'work';
+    await this.logSession(false, true);
+
+    this.state = Pomodoro.skip(this.state, this.state.preset);
+    this.state.startedAt = Date.now();
+    await this.persistState();
+    this.startTickAlarm();
+    await this.broadcastState();
+
+    if (wasWork) {
+      await this.broadcastFocusUnblock();
+    }
+  },
+
+  async abandon() {
+    if (!this.state || this.state.status === 'idle') return;
+
+    const wasWork = this.state.sessionType === 'work';
+    await this.logSession(false, false);
+
+    this.state = null;
+    this.stopTickAlarm();
+    await chrome.storage.local.remove('pomodoroState');
+    await this.broadcastState();
+
+    if (wasWork) {
+      await this.broadcastFocusUnblock();
+    }
+  },
+
+  async handleTick() {
+    if (!this.state || this.state.status !== 'running') {
+      this.stopTickAlarm();
+      return;
+    }
+
+    const elapsed = Math.floor((Date.now() - this.state.startedAt) / 1000);
+    const remaining = Math.max(0, this.state.totalSeconds - elapsed);
+    this.state.remainingSeconds = remaining;
+
+    if (remaining <= 0) {
+      await this.handleSessionComplete();
+      return;
+    }
+
+    await this.persistState();
+    await this.broadcastState();
+  },
+
+  async handleSessionComplete() {
+    const previousType = this.state.sessionType;
+    const wasWork = previousType === 'work';
+
+    await this.logSession(true, false);
+
+    // Compute next session
+    this.state = Pomodoro.complete(this.state, this.state.preset);
+    this.state.startedAt = Date.now();
+    await this.persistState();
+    await this.broadcastState();
+
+    // Notify user
+    const nextLabel = Pomodoro.formatSessionType(this.state.sessionType);
+    const nextMin = Math.floor(this.state.totalSeconds / 60);
+    const title = wasWork ? 'session complete' : 'break over';
+    const body = wasWork
+      ? `take a ${nextLabel}. ${nextMin}m.`
+      : `time to focus. ${nextMin}m.`;
+
+    try {
+      chrome.notifications.create(`pomo-${Date.now()}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: title,
+        message: body,
+        silent: false
+      });
+    } catch (e) {
+      // notifications might not be available
+    }
+
+    // Unblock sites when work ends, block when work starts
+    if (wasWork) {
+      await this.broadcastFocusUnblock();
+    } else {
+      await this.broadcastFocusBlock();
+    }
+  },
+
+  async logSession(wasCompleted, wasSkipped) {
+    if (!this.state) return;
+
+    const today = this.formatDate(new Date());
+    const session = {
+      id: `pomo-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      sessionType: this.state.sessionType,
+      presetName: this.state.presetName,
+      durationSeconds: this.state.totalSeconds,
+      completedAt: Date.now(),
+      wasCompleted: wasCompleted,
+      wasSkipped: wasSkipped
+    };
+
+    try {
+      const result = await chrome.storage.local.get(['pomodoroSessions']);
+      const sessions = result.pomodoroSessions || {};
+      if (!sessions[today]) sessions[today] = [];
+      sessions[today].push(session);
+      await chrome.storage.local.set({ pomodoroSessions: sessions });
+    } catch (e) {
+      // silently fail
+    }
+  },
+
+  async broadcastState() {
+    const state = this.state;
+    try {
+      chrome.runtime.sendMessage({
+        type: 'POMODORO_STATE',
+        state: state
+      }).catch(() => {});
+    } catch (e) {
+      // no listeners
+    }
+  },
+
+  async broadcastFocusBlock() {
+    if (!this.state) return;
+    try {
+      const tabs = await chrome.tabs.query({});
+      for (const tab of tabs) {
+        if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'POMODORO_FOCUS_BLOCK',
+            remainingSeconds: this.state.remainingSeconds
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  async broadcastFocusUnblock() {
+    try {
+      const tabs = await chrome.tabs.query({});
+      for (const tab of tabs) {
+        if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'POMODORO_FOCUS_UNBLOCK'
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  async getState() {
+    if (this.state && this.state.status === 'running') {
+      const elapsed = Math.floor((Date.now() - this.state.startedAt) / 1000);
+      this.state.remainingSeconds = Math.max(0, this.state.totalSeconds - elapsed);
+    }
+    return this.state;
+  },
+
+  formatDate(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+};
+
+// ============ Website Tracker ============
 
 const WebsiteTracker = {
-  // Current tracking state
   currentDomain: null,
   currentFavicon: null,
   trackingStartTime: null,
   isUserActive: true,
-
-  // Save interval in milliseconds
   SAVE_INTERVAL: 30000,
-
-  // Idle detection threshold in seconds
   IDLE_THRESHOLD: 60,
-
-  // Track which domains are currently blocked (in-memory cache)
   blockedDomains: new Set(),
 
   async init() {
-    // Set up idle detection
     chrome.idle.setDetectionInterval(this.IDLE_THRESHOLD);
-
-    // Restore blocked state from session storage (survives service worker termination)
     await this.restoreBlockedState();
-
-    // Initialize blocking system
     this.initBlockingSystem();
 
-    // Listen for idle state changes
     chrome.idle.onStateChanged.addListener((state) => {
       this.handleIdleStateChange(state);
     });
 
-    // Listen for tab activation
     chrome.tabs.onActivated.addListener((activeInfo) => {
       this.handleTabActivated(activeInfo);
     });
 
-    // Listen for tab URL changes
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       this.handleTabUpdated(tabId, changeInfo, tab);
     });
 
-    // Listen for window focus changes
     chrome.windows.onFocusChanged.addListener((windowId) => {
       this.handleWindowFocusChanged(windowId);
     });
 
-    // Start periodic save
-    this.startPeriodicSave();
-
-    // Initialize with current tab
+    this.startAlarms();
     this.initCurrentTab();
   },
 
@@ -60,21 +295,18 @@ const WebsiteTracker = {
         this.startTracking(tab.url, tab.favIconUrl);
       }
     } catch (e) {
-      console.error('Error initializing current tab:', e);
+      // ignore
     }
   },
 
   handleIdleStateChange(state) {
     if (state === 'active') {
       this.isUserActive = true;
-      // Resume tracking
       if (this.currentDomain && !this.trackingStartTime) {
         this.trackingStartTime = Date.now();
       }
     } else {
-      // User is idle or locked
       this.isUserActive = false;
-      // Save current time and pause tracking
       this.saveCurrentTime();
       this.trackingStartTime = null;
     }
@@ -87,16 +319,14 @@ const WebsiteTracker = {
         this.switchToUrl(tab.url, tab.favIconUrl);
       }
     } catch (e) {
-      console.error('Error handling tab activation:', e);
+      // ignore
     }
   },
 
   handleTabUpdated(tabId, changeInfo, tab) {
-    // Only track URL changes on the active tab
     if (changeInfo.url && tab.active) {
       this.switchToUrl(changeInfo.url, tab.favIconUrl);
     }
-    // Update favicon if it changes
     if (changeInfo.favIconUrl && tab.active && this.currentDomain) {
       const domain = this.extractDomain(tab.url);
       if (domain === this.currentDomain) {
@@ -107,26 +337,22 @@ const WebsiteTracker = {
 
   async handleWindowFocusChanged(windowId) {
     if (windowId === chrome.windows.WINDOW_ID_NONE) {
-      // Browser lost focus - save current time
       this.saveCurrentTime();
       this.trackingStartTime = null;
     } else {
-      // Browser gained focus - resume tracking
       try {
         const [tab] = await chrome.tabs.query({ active: true, windowId });
         if (tab && tab.url) {
           this.switchToUrl(tab.url, tab.favIconUrl);
         }
       } catch (e) {
-        console.error('Error handling window focus:', e);
+        // ignore
       }
     }
   },
 
   switchToUrl(url, faviconUrl) {
     const domain = this.extractDomain(url);
-
-    // Skip invalid domains
     if (!domain) {
       this.saveCurrentTime();
       this.currentDomain = null;
@@ -134,8 +360,6 @@ const WebsiteTracker = {
       this.trackingStartTime = null;
       return;
     }
-
-    // If domain changed, save time for previous domain
     if (domain !== this.currentDomain) {
       this.saveCurrentTime();
       this.startTracking(url, faviconUrl);
@@ -145,7 +369,6 @@ const WebsiteTracker = {
   startTracking(url, faviconUrl) {
     const domain = this.extractDomain(url);
     if (!domain) return;
-
     this.currentDomain = domain;
     this.currentFavicon = faviconUrl || this.getFaviconUrl(domain);
     this.trackingStartTime = this.isUserActive ? Date.now() : null;
@@ -154,10 +377,7 @@ const WebsiteTracker = {
   extractDomain(url) {
     try {
       const urlObj = new URL(url);
-      // Skip chrome:// and other browser URLs
-      if (!urlObj.protocol.startsWith('http')) {
-        return null;
-      }
+      if (!urlObj.protocol.startsWith('http')) return null;
       return urlObj.hostname;
     } catch (e) {
       return null;
@@ -165,7 +385,6 @@ const WebsiteTracker = {
   },
 
   getFaviconUrl(domain) {
-    // Use DuckDuckGo's favicon service
     return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
   },
 
@@ -178,179 +397,109 @@ const WebsiteTracker = {
     const today = this.formatDate(new Date());
 
     try {
-      // Get current data
       const result = await chrome.storage.local.get(['websiteEntries']);
       const websiteEntries = result.websiteEntries || {};
 
-      if (!websiteEntries[today]) {
-        websiteEntries[today] = {};
-      }
-
+      if (!websiteEntries[today]) websiteEntries[today] = {};
       if (!websiteEntries[today][this.currentDomain]) {
-        websiteEntries[today][this.currentDomain] = {
-          totalSeconds: 0,
-          favicon: this.currentFavicon
-        };
+        websiteEntries[today][this.currentDomain] = { totalSeconds: 0, favicon: this.currentFavicon };
       }
 
       websiteEntries[today][this.currentDomain].totalSeconds += elapsedSeconds;
-
-      // Update favicon if we have a newer one
       if (this.currentFavicon) {
         websiteEntries[today][this.currentDomain].favicon = this.currentFavicon;
       }
 
       await chrome.storage.local.set({ websiteEntries });
 
-      // Check if time limit exceeded after saving
       const exceeded = await this.checkTimeLimit(this.currentDomain);
-      if (exceeded) {
-        await this.addBlockRule(this.currentDomain);
-      }
+      if (exceeded) await this.addBlockRule(this.currentDomain);
 
-      // Reset tracking start time
       this.trackingStartTime = this.isUserActive ? Date.now() : null;
     } catch (e) {
-      console.error('Error saving website time:', e);
+      // ignore
     }
   },
 
-  startPeriodicSave() {
-    // Use chrome.alarms for reliable periodic execution in service workers
-    chrome.alarms.create('saveWebsiteTime', {
-      periodInMinutes: 0.5 // 30 seconds
-    });
-
-    // Storage cleanup alarm - runs once per day
-    chrome.alarms.create('storageCleanup', {
-      periodInMinutes: 24 * 60 // Once per day
-    });
-
-    chrome.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === 'saveWebsiteTime') {
-        this.saveCurrentTime();
-      }
-      if (alarm.name === 'dailyLimitReset') {
-        this.clearAllBlockRules();
-      }
-      if (alarm.name === 'storageCleanup') {
-        this.runStorageCleanup();
-      }
-    });
+  startAlarms() {
+    chrome.alarms.create('saveWebsiteTime', { periodInMinutes: 0.5 });
+    chrome.alarms.create('storageCleanup', { periodInMinutes: 24 * 60 });
   },
 
-  // Run storage cleanup to prevent unbounded growth
   async runStorageCleanup() {
     try {
-      // Access Storage via chrome.storage since this is a service worker
       const result = await chrome.storage.local.get(['websiteEntries', 'entries']);
 
       const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 90); // 90 days for websites
+      cutoffDate.setDate(cutoffDate.getDate() - 90);
       const websiteCutoff = this.formatDate(cutoffDate);
 
-      cutoffDate.setDate(cutoffDate.getDate() - 310); // 400 days total for habits
+      cutoffDate.setDate(cutoffDate.getDate() - 310);
       const habitCutoff = this.formatDate(cutoffDate);
 
-      // Clean website entries
       const websiteEntries = result.websiteEntries || {};
       const cleanedWebsiteEntries = {};
       for (const [date, entries] of Object.entries(websiteEntries)) {
-        if (date >= websiteCutoff) {
-          cleanedWebsiteEntries[date] = entries;
-        }
+        if (date >= websiteCutoff) cleanedWebsiteEntries[date] = entries;
       }
 
-      // Clean habit entries
       const habitEntries = result.entries || {};
       const cleanedHabitEntries = {};
       for (const [date, entries] of Object.entries(habitEntries)) {
-        if (date >= habitCutoff) {
-          cleanedHabitEntries[date] = entries;
-        }
+        if (date >= habitCutoff) cleanedHabitEntries[date] = entries;
       }
 
       await chrome.storage.local.set({
         websiteEntries: cleanedWebsiteEntries,
         entries: cleanedHabitEntries
       });
-
-      console.log('Storage cleanup completed');
     } catch (e) {
-      console.error('Storage cleanup error:', e);
+      // ignore
     }
   },
 
-  // Initialize blocking system on startup
   async initBlockingSystem() {
-    // Clear any stale rules from previous sessions
     await this.clearAllBlockRules();
-
-    // Check all domains with limits and block if already exceeded
     await this.checkAllTimeLimits();
-
-    // Set up daily reset alarm
     this.setupDailyReset();
   },
 
-  // Check if a domain has exceeded its time limit
   async checkTimeLimit(domain) {
     const today = this.formatDate(new Date());
-
     const result = await chrome.storage.local.get(['websiteSettings', 'websiteEntries']);
     const settings = result.websiteSettings || {};
     const entries = result.websiteEntries || {};
-
     const domainSettings = settings[domain];
     if (!domainSettings?.dailyLimitSeconds) return false;
-
-    const todayEntry = entries[today]?.[domain];
-    const usedSeconds = todayEntry?.totalSeconds || 0;
-
+    const usedSeconds = entries[today]?.[domain]?.totalSeconds || 0;
     return usedSeconds >= domainSettings.dailyLimitSeconds;
   },
 
-  // Persist blocked state to session storage (survives service worker termination)
   async persistBlockedState() {
     try {
-      await chrome.storage.session.set({
-        blockedDomains: Array.from(this.blockedDomains)
-      });
+      await chrome.storage.session.set({ blockedDomains: Array.from(this.blockedDomains) });
     } catch (e) {
-      console.error('Error persisting blocked state:', e);
+      // ignore
     }
   },
 
-  // Restore blocked state from session storage
   async restoreBlockedState() {
     try {
       const { blockedDomains } = await chrome.storage.session.get(['blockedDomains']);
       this.blockedDomains = new Set(blockedDomains || []);
-      console.log('Restored blocked domains:', this.blockedDomains.size);
-
-      // Re-check all time limits in case they changed while service worker was inactive
       await this.checkAllTimeLimits();
     } catch (e) {
-      console.error('Error restoring blocked state:', e);
       this.blockedDomains = new Set();
     }
   },
 
-  // Block a domain by notifying content scripts
   async addBlockRule(domain) {
     if (this.blockedDomains.has(domain)) return;
-
     const result = await chrome.storage.local.get(['websiteSettings']);
     const limit = result.websiteSettings?.[domain]?.dailyLimitSeconds || 0;
-
     this.blockedDomains.add(domain);
-
-    // Persist to session storage
     await this.persistBlockedState();
 
-    console.log(`Blocked domain: ${domain}`);
-
-    // Send block message to all tabs with this domain
     try {
       const tabs = await chrome.tabs.query({});
       for (const tab of tabs) {
@@ -366,25 +515,20 @@ const WebsiteTracker = {
         }
       }
     } catch (e) {
-      console.error('Error sending block message:', e);
+      // ignore
     }
   },
 
-  // Remove block for a domain (not used much since blocks reset at midnight)
   async removeBlockRule(domain) {
     this.blockedDomains.delete(domain);
     await this.persistBlockedState();
-    console.log(`Unblocked domain: ${domain}`);
   },
 
-  // Clear all blocks (used on daily reset)
   async clearAllBlockRules() {
     this.blockedDomains.clear();
     await this.persistBlockedState();
-    console.log('Cleared all block rules');
   },
 
-  // Check all domains with time limits
   async checkAllTimeLimits() {
     const result = await chrome.storage.local.get(['websiteSettings', 'websiteEntries']);
     const settings = result.websiteSettings || {};
@@ -402,16 +546,12 @@ const WebsiteTracker = {
     }
   },
 
-  // Set up daily reset at midnight
   setupDailyReset() {
     const now = new Date();
     const midnight = new Date(now);
     midnight.setHours(24, 0, 0, 0);
-
-    const msUntilMidnight = midnight.getTime() - now.getTime();
-
     chrome.alarms.create('dailyLimitReset', {
-      when: Date.now() + msUntilMidnight,
+      when: Date.now() + (midnight.getTime() - now.getTime()),
       periodInMinutes: 24 * 60
     });
   },
@@ -425,5 +565,46 @@ const WebsiteTracker = {
   }
 };
 
-// Initialize tracker
+// ============ Unified Alarm Dispatcher ============
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'saveWebsiteTime') WebsiteTracker.saveCurrentTime();
+  if (alarm.name === 'dailyLimitReset') WebsiteTracker.clearAllBlockRules();
+  if (alarm.name === 'storageCleanup') WebsiteTracker.runStorageCleanup();
+  if (alarm.name === 'pomodoroTick') PomodoroTimer.handleTick();
+});
+
+// ============ Message Handler ============
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'START_POMODORO') {
+    PomodoroTimer.start(message.preset || Pomodoro.DEFAULT_PRESET)
+      .then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === 'PAUSE_POMODORO') {
+    PomodoroTimer.pause().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === 'RESUME_POMODORO') {
+    PomodoroTimer.resume().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === 'SKIP_POMODORO') {
+    PomodoroTimer.skip().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === 'ABANDON_POMODORO') {
+    PomodoroTimer.abandon().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === 'GET_POMODORO_STATE') {
+    PomodoroTimer.getState().then(state => sendResponse({ state }));
+    return true;
+  }
+});
+
+// ============ Initialize ============
+
 WebsiteTracker.init();
+PomodoroTimer.init();
