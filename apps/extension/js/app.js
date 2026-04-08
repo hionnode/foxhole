@@ -364,8 +364,12 @@ const App = {
     // Update progress text
     const progressEl = document.getElementById('habitProgress');
     if (progressEl) {
+      progressEl.classList.remove('perfect-day');
       if (count > 0) {
         progressEl.textContent = `${completedToday}/${count}`;
+        if (completedToday === count) {
+          progressEl.classList.add('perfect-day');
+        }
       } else {
         progressEl.textContent = '';
       }
@@ -427,7 +431,13 @@ const App = {
 
     const rateSpan = document.createElement('span');
     rateSpan.className = 'day-details-rate';
-    rateSpan.textContent = `${Math.round(rate * 100)}% completed`;
+    const pct = Math.round(rate * 100);
+    let narrative = '';
+    if (pct === 100) narrative = ' — perfect';
+    else if (pct >= 80) narrative = ' — strong';
+    else if (pct > 0) narrative = ' — incomplete';
+    else narrative = ' — rest day';
+    rateSpan.textContent = `${pct}%${narrative}`;
 
     details.appendChild(dateSpan);
     details.appendChild(rateSpan);

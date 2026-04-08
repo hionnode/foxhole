@@ -52,33 +52,43 @@ body {
 /* ============ Layout ============ */
 
 .container {
-  max-width: 640px;
+  max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 40px 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
   flex: 1;
+}
+
+@media (min-width: 1200px) {
+  .container {
+    max-width: 840px;
+    padding: 48px 48px;
+  }
 }
 
 /* ============ Header ============ */
 
 .page-header {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .page-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--text-muted);
+  letter-spacing: 1px;
 }
 
 .date-label {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 32px;
+  color: var(--text-primary);
+  line-height: 1.2;
+  letter-spacing: -0.5px;
 }
 
 /* ============ Section Headers ============ */
@@ -87,9 +97,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 12px;
   background: none;
   border-top: none;
   border-left: none;
@@ -106,11 +116,19 @@ body {
   font-weight: 400;
   color: var(--text-primary);
   margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
 }
 
 .habit-progress {
   font-size: 12px;
   color: var(--text-muted);
+  letter-spacing: 0.2px;
+  transition: color 0.1s ease;
+}
+
+.habit-progress.perfect-day {
+  color: var(--text-primary);
 }
 
 /* ============ Habits ============ */
@@ -154,6 +172,16 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
+  opacity: 0.5;
+  transition: opacity 0.1s ease;
+}
+
+.habit-item:hover .habit-inline-streak {
+  opacity: 1;
+}
+
+.habit-item.completed .habit-inline-streak {
+  opacity: 0.85;
 }
 
 .habit-status {
@@ -339,6 +367,16 @@ body {
 
 /* ============ Chart ============ */
 
+.section-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 16px;
+  margin-left: -16px;
+  margin-right: -16px;
+  width: calc(100% + 32px);
+}
+
 .chart-container {
   overflow-x: auto;
 }
@@ -350,7 +388,7 @@ body {
 }
 
 .selected-day-details {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .day-details {
@@ -463,9 +501,10 @@ body {
 .footer {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 2px solid var(--border);
+  margin-top: 8px;
 }
 
 .footer-btn {
