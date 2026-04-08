@@ -16,6 +16,7 @@ import { usePresetStore } from '@/stores/presetStore';
 import { useUsageStore } from '@/stores/usageStore';
 import { requestUsageAccess } from '@/native/UsageStats';
 import type { Preset, TimerDisplayMode } from '@/types';
+import { triggerHaptic } from '@/utils/haptics';
 
 const CLASSIC_ID = 'classic';
 
@@ -46,6 +47,7 @@ const SettingsScreen = () => {
 
   const handlePresetTap = useCallback(
     (id: string) => {
+      triggerHaptic();
       setActivePreset(id);
       setEditingId((current) => (current === id ? null : id));
     },
@@ -75,6 +77,7 @@ const SettingsScreen = () => {
   );
 
   const handleAddPreset = useCallback(() => {
+    triggerHaptic();
     if (presets.length >= 5) {
       return;
     }
@@ -168,6 +171,7 @@ const SettingsScreen = () => {
       {!usageAccessGranted ? (
         <Pressable
           onPress={() => {
+            triggerHaptic();
             requestUsageAccess().then(() => {
               // Re-check after user returns
               checkUsagePermission();
@@ -187,7 +191,7 @@ const SettingsScreen = () => {
       ) : (
         <>
           <Pressable
-            onPress={() => setShowTrackedApps((v) => !v)}
+            onPress={() => { triggerHaptic(); setShowTrackedApps((v) => !v); }}
             style={({ pressed }) => [
               styles.displayOption,
               pressed && styles.pressed,
@@ -224,7 +228,7 @@ const SettingsScreen = () => {
 
       <Text style={styles.sectionHeader}>timer display</Text>
       <Pressable
-        onPress={() => setTimerDisplayMode('digital')}
+        onPress={() => { triggerHaptic(); setTimerDisplayMode('digital'); }}
         style={({ pressed }) => [
           styles.displayOption,
           pressed && styles.pressed,
@@ -238,7 +242,7 @@ const SettingsScreen = () => {
         ) : null}
       </Pressable>
       <Pressable
-        onPress={() => setTimerDisplayMode('blocks')}
+        onPress={() => { triggerHaptic(); setTimerDisplayMode('blocks'); }}
         style={({ pressed }) => [
           styles.displayOption,
           pressed && styles.pressed,

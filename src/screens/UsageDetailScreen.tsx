@@ -6,6 +6,7 @@ import { formatUsageTime } from '@/utils/formatTime';
 import { useUsageStore } from '@/stores/usageStore';
 import { requestUsageAccess } from '@/native/UsageStats';
 import type { AppUsageData } from '@/types';
+import { triggerHaptic } from '@/utils/haptics';
 
 const AppRow = React.memo(({ item }: { item: AppUsageData }) => (
   <View style={styles.appRow}>
@@ -45,7 +46,7 @@ const UsageDetailScreen = () => {
             to show app tracking data
           </Text>
           <Pressable
-            onPress={() => requestUsageAccess()}
+            onPress={() => { triggerHaptic(); requestUsageAccess(); }}
             style={({ pressed }) => [
               styles.grantButton,
               pressed && styles.pressed,

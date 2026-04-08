@@ -10,6 +10,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useUsageStore } from '@/stores/usageStore';
 import { isDndAccessGranted, requestDndAccess } from '@/native/DndManager';
 import { formatTime, formatUsageTime } from '@/utils/formatTime';
+import { triggerHaptic } from '@/utils/haptics';
 
 type RootStackParamList = {
   Tabs: undefined;
@@ -62,12 +63,14 @@ const HomeScreen = () => {
   }, [isFocused, checkUsagePermission, refreshUsage]);
 
   const cycleToNextPreset = useCallback(() => {
+    triggerHaptic();
     const currentIndex = presets.findIndex((p) => p.id === activePresetId);
     const nextIndex = (currentIndex + 1) % presets.length;
     setActivePreset(presets[nextIndex].id);
   }, [presets, activePresetId, setActivePreset]);
 
   const cycleToPrevPreset = useCallback(() => {
+    triggerHaptic();
     const currentIndex = presets.findIndex((p) => p.id === activePresetId);
     const prevIndex = (currentIndex - 1 + presets.length) % presets.length;
     setActivePreset(presets[prevIndex].id);
@@ -80,6 +83,7 @@ const HomeScreen = () => {
   }, [startSession, navigation]);
 
   const handleDigIn = useCallback(async () => {
+    triggerHaptic();
     try {
       const granted = await isDndAccessGranted();
       if (!granted) {
@@ -170,7 +174,7 @@ const HomeScreen = () => {
             </Text>
             {usageAccessGranted && (
               <Pressable
-                onPress={() => navigation.navigate('UsageDetail')}
+                onPress={() => { triggerHaptic(); navigation.navigate('UsageDetail'); }}
                 style={({ pressed }) => [pressed && styles.pressed]}>
                 <Text style={styles.statsText}>
                   {formatUsageTime(totalTimeMs)} distractions {'>'}

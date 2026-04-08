@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface StepperProps {
   value: number;
@@ -23,6 +24,7 @@ export const Stepper: React.FC<StepperProps> = ({
   const handleDecrement = () => {
     const next = value - step;
     if (next >= min) {
+      triggerHaptic();
       onValueChange(next);
     }
   };
@@ -30,6 +32,7 @@ export const Stepper: React.FC<StepperProps> = ({
   const handleIncrement = () => {
     const next = value + step;
     if (next <= max) {
+      triggerHaptic();
       onValueChange(next);
     }
   };

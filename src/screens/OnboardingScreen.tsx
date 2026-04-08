@@ -6,6 +6,7 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { isDndAccessGranted, requestDndAccess } from '@/native/DndManager';
 import { storage } from '@/stores/mmkv';
+import { triggerHaptic } from '@/utils/haptics';
 
 const ONBOARDING_COMPLETE_KEY = 'onboarding_complete';
 
@@ -61,10 +62,12 @@ const OnboardingScreen = () => {
   }, [checkDndStatus]);
 
   const handleGrantAccess = useCallback(() => {
+    triggerHaptic();
     requestDndAccess().catch(() => {});
   }, []);
 
   const handleCta = useCallback(() => {
+    triggerHaptic();
     markOnboardingComplete();
     navigation.replace('Tabs');
   }, [navigation]);

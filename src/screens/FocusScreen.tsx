@@ -22,6 +22,7 @@ import { usePresetStore } from '@/stores/presetStore';
 import { DigitalTimer } from '@/components/DigitalTimer';
 import { BlockTimer } from '@/components/BlockTimer';
 import type { SessionType } from '@/types';
+import { triggerHaptic } from '@/utils/haptics';
 
 type RootStackParamList = {
   Tabs: undefined;
@@ -101,6 +102,7 @@ const FocusScreen = () => {
   }, [abandonSession, navigation]);
 
   const showAbandonConfirmation = useCallback(() => {
+    triggerHaptic();
     setShowAbandonModal(true);
   }, []);
 
@@ -142,7 +144,7 @@ const FocusScreen = () => {
           <Text style={styles.transitionDuration}>{nextDuration}</Text>
           {isBreak ? (
             <Pressable
-              onPress={skipSession}
+              onPress={() => { triggerHaptic(); skipSession(); }}
               style={({ pressed }) => [
                 styles.skipButton,
                 pressed && styles.pressedOpacity,
@@ -151,7 +153,7 @@ const FocusScreen = () => {
             </Pressable>
           ) : (
             <Pressable
-              onPress={startNextSession}
+              onPress={() => { triggerHaptic(); startNextSession(); }}
               style={({ pressed }) => [
                 styles.skipButton,
                 pressed && styles.pressedOpacity,
@@ -215,7 +217,7 @@ const FocusScreen = () => {
             <Text style={styles.modalTitle}>abandon this session?</Text>
             <View style={styles.modalActions}>
               <Pressable
-                onPress={() => setShowAbandonModal(false)}
+                onPress={() => { triggerHaptic(); setShowAbandonModal(false); }}
                 style={({ pressed }) => [
                   styles.modalButton,
                   pressed && styles.pressedOpacity,
@@ -223,7 +225,7 @@ const FocusScreen = () => {
                 <Text style={styles.modalKeep}>keep going</Text>
               </Pressable>
               <Pressable
-                onPress={handleAbandonAndGoBack}
+                onPress={() => { triggerHaptic(); handleAbandonAndGoBack(); }}
                 style={({ pressed }) => [
                   styles.modalButton,
                   pressed && styles.pressedOpacity,
