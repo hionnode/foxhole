@@ -63,7 +63,7 @@ class UsageStatsModule(reactContext: ReactApplicationContext) : ReactContextBase
                 // Build set of requested package names
                 val requested = mutableSetOf<String>()
                 for (i in 0 until packageNames.size()) {
-                    requested.add(packageNames.getString(i))
+                    packageNames.getString(i)?.let { requested.add(it) }
                 }
 
                 // Query foreground time (aggregate per package)
