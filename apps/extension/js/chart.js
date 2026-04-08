@@ -297,10 +297,9 @@ const Chart = {
 
   // Get color for mini chart cell (binary: completed or not)
   getMiniChartColor(completed, isFuture) {
-    if (isFuture) return '#2a2a2a';
-    if (completed === null) return '#2a2a2a'; // Before habit existed
-    // Use consistent amber (growth-oriented) instead of harsh red (shame-inducing)
-    return completed ? '#50c878' : Habits.getColor(0, false);
+    if (isFuture) return '#3c3836';
+    if (completed === null) return '#3c3836'; // Before habit existed
+    return completed ? '#d5c4a1' : Habits.getColor(0, false);
   },
 
   // Render a combined mini year chart showing overall completion
@@ -427,12 +426,11 @@ const Chart = {
 
       let color;
       if (isFuture || isBeforeHabit) {
-        color = '#2a2a2a';
+        color = '#3c3836';
       } else {
         const entry = entries[dateStr]?.[habitId];
         const completed = Habits.isCompleted(entry, habit);
-        // Use consistent amber (growth-oriented) instead of harsh red
-        color = completed ? '#50c878' : Habits.getColor(0, false);
+            color = completed ? '#d5c4a1' : Habits.getColor(0, false);
       }
 
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -445,7 +443,7 @@ const Chart = {
       rect.setAttribute('data-date', dateStr);
 
       if (isToday) {
-        rect.setAttribute('stroke', '#fff');
+        rect.setAttribute('stroke', '#ebdbb2');
         rect.setAttribute('stroke-width', '1.5');
       }
 
@@ -528,10 +526,9 @@ const Chart = {
 
       let color;
       if (isFuture || isBeforeHabit) {
-        color = '#2a2a2a';
+        color = '#3c3836';
       } else {
-        // Use consistent amber (growth-oriented) instead of harsh red
-        color = completed ? '#50c878' : Habits.getColor(0, false);
+            color = completed ? '#d5c4a1' : Habits.getColor(0, false);
       }
 
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');

@@ -104,22 +104,12 @@ const Habits = {
     return completed / activeHabits.length;
   },
 
-  // Get color based on completion rate
-  // Uses softer amber for missed days (growth-oriented) instead of harsh red (shame-based)
+  // Get color based on completion rate (monochrome gruvbox)
   getColor(completionRate, isFuture = false) {
-    if (isFuture) {
-      return '#2a2a2a'; // Grey for future
-    }
-
-    if (completionRate === 0) {
-      return '#e07850'; // Softer amber/coral for 0% (growth-oriented, not shame-inducing)
-    }
-
-    // Interpolate between amber, yellow, and green
-    if (completionRate <= 0.5) {
-      return this.interpolateColor('#e07850', '#ffcc00', completionRate * 2);
-    }
-    return this.interpolateColor('#ffcc00', '#50c878', (completionRate - 0.5) * 2);
+    if (isFuture) return '#3c3836';
+    if (completionRate === 0) return '#504945';
+    if (completionRate < 1) return '#a89984';
+    return '#d5c4a1';
   },
 
 // Calculate best (longest) historical streak for a habit
@@ -199,25 +189,5 @@ const Habits = {
     };
   },
 
-  // Interpolate between two hex colors
-  interpolateColor(color1, color2, factor) {
-    const c1 = this.hexToRgb(color1);
-    const c2 = this.hexToRgb(color2);
-
-    const r = Math.round(c1.r + (c2.r - c1.r) * factor);
-    const g = Math.round(c1.g + (c2.g - c1.g) * factor);
-    const b = Math.round(c1.b + (c2.b - c1.b) * factor);
-
-    return `rgb(${r}, ${g}, ${b})`;
-  },
-
-  // Convert hex to RGB
-  hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
-  }
+}
 };

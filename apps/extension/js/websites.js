@@ -165,7 +165,7 @@ const Websites = {
     }
     // Add uncategorized
     totals['uncategorized'] = {
-      category: { id: 'uncategorized', name: 'Other', color: '#666666' },
+      category: { id: 'uncategorized', name: 'other', color: '#504945' },
       totalSeconds: 0
     };
 

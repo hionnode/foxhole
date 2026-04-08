@@ -22,17 +22,17 @@ const WebsiteChart = {
 
       // Bar
       svg += `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}"
-                    fill="#4a9eff" rx="2" class="bar" data-date="${d.date}"/>`;
+                    fill="#a89984" rx="2" class="bar" data-date="${d.date}"/>`;
 
       // Day label
       svg += `<text x="${x + barWidth / 2}" y="${height - 5}"
-                    fill="#888" font-size="10" text-anchor="middle">${d.dayLabel}</text>`;
+                    fill="#a89984" font-size="10" text-anchor="middle">${d.dayLabel}</text>`;
 
       // Time label on hover area (show if has time)
       if (d.seconds > 0) {
         const timeLabel = Websites.formatTime(d.seconds);
         svg += `<text x="${x + barWidth / 2}" y="${y - 4}"
-                      fill="#aaa" font-size="9" text-anchor="middle" class="bar-label">${timeLabel}</text>`;
+                      fill="#d5c4a1" font-size="9" text-anchor="middle" class="bar-label">${timeLabel}</text>`;
       }
     });
 
@@ -61,7 +61,7 @@ const WebsiteChart = {
       areaPath += ` L ${x} ${y}`;
     });
     areaPath += ` L ${padding.left + chartWidth} ${padding.top + chartHeight} Z`;
-    svg += `<path d="${areaPath}" fill="rgba(74, 158, 255, 0.2)"/>`;
+    svg += `<path d="${areaPath}" fill="rgba(168, 153, 132, 0.15)"/>`;
 
     // Draw line
     let linePath = '';
@@ -70,18 +70,18 @@ const WebsiteChart = {
       const y = padding.top + chartHeight - (d.seconds / maxSeconds) * chartHeight;
       linePath += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
     });
-    svg += `<path d="${linePath}" fill="none" stroke="#4a9eff" stroke-width="2"/>`;
+    svg += `<path d="${linePath}" fill="none" stroke="#a89984" stroke-width="2"/>`;
 
     // Draw points for key dates
     trendData.forEach((d, i) => {
       if (i % 7 === 0 || i === trendData.length - 1) {
         const x = padding.left + i * pointSpacing;
         const y = padding.top + chartHeight - (d.seconds / maxSeconds) * chartHeight;
-        svg += `<circle cx="${x}" cy="${y}" r="3" fill="#4a9eff"/>`;
+        svg += `<circle cx="${x}" cy="${y}" r="3" fill="#a89984"/>`;
 
         // Day number label
         svg += `<text x="${x}" y="${height - 5}"
-                      fill="#888" font-size="9" text-anchor="middle">${d.dayNum}</text>`;
+                      fill="#a89984" font-size="9" text-anchor="middle">${d.dayNum}</text>`;
       }
     });
 
@@ -135,8 +135,8 @@ const WebsiteChart = {
     });
 
     // Center text with total time
-    svg += `<text x="${centerX}" y="${centerY - 5}" fill="#fff" font-size="14" font-weight="600" text-anchor="middle">${Websites.formatTime(total)}</text>`;
-    svg += `<text x="${centerX}" y="${centerY + 12}" fill="#888" font-size="10" text-anchor="middle">total</text>`;
+    svg += `<text x="${centerX}" y="${centerY - 5}" fill="#ebdbb2" font-size="14" font-weight="600" text-anchor="middle">${Websites.formatTime(total)}</text>`;
+    svg += `<text x="${centerX}" y="${centerY + 12}" fill="#a89984" font-size="10" text-anchor="middle">total</text>`;
 
     svg += '</svg>';
 
@@ -177,13 +177,13 @@ const WebsiteChart = {
       const y = padding + chartHeight - (d.seconds / maxSeconds) * chartHeight;
       linePath += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
     });
-    svg += `<path d="${linePath}" fill="none" stroke="#4a9eff" stroke-width="1.5"/>`;
+    svg += `<path d="${linePath}" fill="none" stroke="#a89984" stroke-width="1.5"/>`;
 
     // End point
     const lastPoint = trendData[trendData.length - 1];
     const lastX = padding + (trendData.length - 1) * pointSpacing;
     const lastY = padding + chartHeight - (lastPoint.seconds / maxSeconds) * chartHeight;
-    svg += `<circle cx="${lastX}" cy="${lastY}" r="2" fill="#4a9eff"/>`;
+    svg += `<circle cx="${lastX}" cy="${lastY}" r="2" fill="#a89984"/>`;
 
     svg += '</svg>';
     container.innerHTML = svg;
