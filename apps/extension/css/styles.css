@@ -162,6 +162,43 @@ body {
   color: var(--text-primary);
 }
 
+/* ============ Instruments ============ */
+
+.caliper {
+  margin-top: 8px;
+  opacity: 0.75;
+}
+
+.caliper svg {
+  display: block;
+}
+
+.streak-ruler {
+  margin: -16px -8px 0;
+  width: calc(100% + 16px);
+}
+
+.streak-ruler svg {
+  display: block;
+  width: 100%;
+}
+
+.section-habits {
+  position: relative;
+}
+
+.protractor {
+  position: absolute;
+  top: -20px;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.protractor svg {
+  display: block;
+}
+
 /* ============ Habits ============ */
 
 .habits-list {
@@ -401,12 +438,15 @@ body {
 .section-chart {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--elevated);
   border-radius: 2px;
   padding: 16px;
   margin-left: -16px;
   margin-right: -16px;
   width: calc(100% + 32px);
   position: relative;
+  transform: rotate(-0.5deg);
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.12), inset 3px 0 0 var(--surface);
 }
 
 .section-chart::before {
@@ -421,15 +461,15 @@ body {
       0deg,
       transparent,
       transparent 19px,
-      rgba(80, 73, 69, 0.08) 19px,
-      rgba(80, 73, 69, 0.08) 20px
+      rgba(80, 73, 69, 0.12) 19px,
+      rgba(80, 73, 69, 0.12) 20px
     ),
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 19px,
-      rgba(80, 73, 69, 0.08) 19px,
-      rgba(80, 73, 69, 0.08) 20px
+      rgba(80, 73, 69, 0.12) 19px,
+      rgba(80, 73, 69, 0.12) 20px
     );
   pointer-events: none;
   border-radius: 2px;
