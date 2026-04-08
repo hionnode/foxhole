@@ -99,7 +99,7 @@ const PomodoroTimer = {
 
     this.state = null;
     this.stopTickAlarm();
-    await chrome.storage.local.remove('pomodoroState');
+    await chrome.storage.local.remove(['pomodoroState', 'pomodoroAllowed']);
     await this.broadcastState();
 
     if (wasWork) {
@@ -160,6 +160,8 @@ const PomodoroTimer = {
 
     // Unblock sites when work ends, block when work starts
     if (wasWork) {
+      // Clear justified domains when work session ends
+      await chrome.storage.local.remove('pomodoroAllowed');
       await this.broadcastFocusUnblock();
     } else {
       await this.broadcastFocusBlock();

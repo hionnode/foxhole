@@ -22,11 +22,17 @@
     }
   });
 
+  let focusObserver = null;
+
   async function checkFocusBlock() {
     try {
-      const result = await chrome.storage.local.get(['pomodoroState']);
+      // Check if this domain was already justified this session
+      const result = await chrome.storage.local.get(['pomodoroState', 'pomodoroAllowed']);
       const state = result.pomodoroState;
+      const allowed = result.pomodoroAllowed || [];
+
       if (state && state.status === 'running' && state.sessionType === 'work') {
+        if (allowed.includes(domain)) return; // already justified
         const remaining = Math.max(0, state.totalSeconds - Math.floor((Date.now() - state.startedAt) / 1000));
         showFocusOverlay(remaining);
       }
@@ -88,6 +94,9 @@
           box-sizing: border-box !important;
           overflow: hidden !important;
         }
+        #foxhole-focus-overlay * {
+          box-sizing: border-box !important;
+        }
         .foxhole-focus-title {
           font-size: 20px !important;
           font-weight: 400 !important;
@@ -97,12 +106,84 @@
         .foxhole-focus-remaining {
           font-size: 16px !important;
           color: #a89984 !important;
-          margin: 0 !important;
+          margin: 0 0 32px 0 !important;
+        }
+        .foxhole-focus-justify-link {
+          background: none !important;
+          border: none !important;
+          color: #a89984 !important;
+          font-size: 12px !important;
+          font-family: '0xProto', monospace !important;
+          cursor: pointer !important;
+          opacity: 0.5 !important;
+          padding: 8px !important;
+          text-transform: lowercase !important;
+        }
+        .foxhole-focus-justify-link:hover {
+          opacity: 1 !important;
+        }
+        .foxhole-focus-justify-form {
+          display: none;
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 12px !important;
+          margin-top: 16px !important;
+          max-width: 320px !important;
+          width: 100% !important;
+        }
+        .foxhole-focus-justify-form.show {
+          display: flex !important;
+        }
+        .foxhole-focus-justify-form input {
+          width: 100% !important;
+          padding: 8px 12px !important;
+          background: #504945 !important;
+          border: 1px solid #504945 !important;
+          border-radius: 2px !important;
+          color: #d5c4a1 !important;
+          font-size: 14px !important;
+          font-family: '0xProto', monospace !important;
+          text-align: center !important;
+        }
+        .foxhole-focus-justify-form input:focus {
+          outline: none !important;
+          border-color: #ebdbb2 !important;
+        }
+        .foxhole-focus-justify-form input::placeholder {
+          color: #a89984 !important;
+          opacity: 0.6 !important;
+        }
+        .foxhole-focus-justify-submit {
+          background: none !important;
+          border: 1px solid #ebdbb2 !important;
+          border-radius: 2px !important;
+          color: #ebdbb2 !important;
+          font-size: 14px !important;
+          font-family: '0xProto', monospace !important;
+          padding: 8px 24px !important;
+          cursor: pointer !important;
+          text-transform: lowercase !important;
+        }
+        .foxhole-focus-justify-submit:hover {
+          opacity: 0.9 !important;
+        }
+        .foxhole-focus-domain {
+          font-size: 12px !important;
+          color: #504945 !important;
+          margin: 0 0 4px 0 !important;
         }
       </style>
 
       <h1 class="foxhole-focus-title">focus mode active.</h1>
+      <p class="foxhole-focus-domain">${domain}</p>
       <p class="foxhole-focus-remaining">${m}m remaining</p>
+
+      <button class="foxhole-focus-justify-link" id="foxhole-justify-link">i need this site</button>
+
+      <div class="foxhole-focus-justify-form" id="foxhole-justify-form">
+        <input type="text" id="foxhole-justify-input" placeholder="why? (e.g., docs, research)" maxlength="80" autocomplete="off">
+        <button class="foxhole-focus-justify-submit" id="foxhole-justify-submit">mark as productive & continue</button>
+      </div>
     `;
 
     if (document.body) {
@@ -111,8 +192,68 @@
       document.documentElement.appendChild(overlay);
     }
 
-    // Prevent removal
-    const observer = new MutationObserver(() => {
+    // Bind justify flow
+    const justifyLink = overlay.querySelector('#foxhole-justify-link');
+    const justifyForm = overlay.querySelector('#foxhole-justify-form');
+    const justifyInput = overlay.querySelector('#foxhole-justify-input');
+    const justifySubmit = overlay.querySelector('#foxhole-justify-submit');
+
+    justifyLink.addEventListener('click', () => {
+      justifyForm.classList.add('show');
+      justifyLink.style.display = 'none';
+      justifyInput.focus();
+    });
+
+    const handleJustify = async () => {
+      const reason = justifyInput.value.trim();
+      if (!reason) {
+        justifyInput.style.borderColor = '#d65d0e';
+        return;
+      }
+
+      try {
+        // Add domain to productivity category and allowed list
+        const result = await chrome.storage.local.get(['websiteSettings', 'pomodoroAllowed']);
+        const settings = result.websiteSettings || {};
+        const allowed = result.pomodoroAllowed || [];
+
+        // Set category to Productivity (cat-1)
+        settings[domain] = {
+          ...settings[domain],
+          categoryId: 'cat-1',
+          justification: reason
+        };
+
+        // Add to session allowed list
+        if (!allowed.includes(domain)) {
+          allowed.push(domain);
+        }
+
+        await chrome.storage.local.set({
+          websiteSettings: settings,
+          pomodoroAllowed: allowed
+        });
+
+        // Remove overlay
+        removeFocusOverlay();
+      } catch (e) {
+        // fallback — just remove overlay
+        removeFocusOverlay();
+      }
+    };
+
+    justifySubmit.addEventListener('click', handleJustify);
+    justifyInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleJustify();
+      }
+      // Allow typing in the input
+      e.stopPropagation();
+    });
+
+    // Prevent removal via MutationObserver
+    focusObserver = new MutationObserver(() => {
       if (!document.getElementById('foxhole-focus-overlay')) {
         if (document.body) {
           document.body.appendChild(overlay);
@@ -121,7 +262,7 @@
         }
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    focusObserver.observe(document.documentElement, { childList: true, subtree: true });
 
     document.documentElement.style.overflow = 'hidden';
     if (document.body) document.body.style.overflow = 'hidden';
@@ -129,6 +270,12 @@
   }
 
   function removeFocusOverlay() {
+    // Disconnect observer first so removal sticks
+    if (focusObserver) {
+      focusObserver.disconnect();
+      focusObserver = null;
+    }
+
     const overlay = document.getElementById('foxhole-focus-overlay');
     if (overlay) {
       overlay.remove();
