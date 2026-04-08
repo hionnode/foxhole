@@ -14,6 +14,7 @@ import HomeScreen from '@/screens/HomeScreen';
 import HistoryScreen from '@/screens/HistoryScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import FocusScreen from '@/screens/FocusScreen';
+import UsageDetailScreen from '@/screens/UsageDetailScreen';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -29,6 +30,7 @@ type RootStackParamList = {
   Onboarding: undefined;
   Tabs: undefined;
   Focus: undefined;
+  UsageDetail: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -110,6 +112,7 @@ const App = () => {
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Tabs" component={TabNavigator} />
         <Stack.Screen name="Focus" component={FocusScreen} />
+        <Stack.Screen name="UsageDetail" component={UsageDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
