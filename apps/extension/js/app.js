@@ -4,99 +4,15 @@ const App = {
   selectedDate: null,
   selectedWebsiteDomain: null,
 
-  // Streak milestones with messages and tiers
-  MILESTONES: {
-    3: { message: "You've started! Most people never make it here", tier: 'bronze' },
-    7: { message: "One week strong! Real momentum building", tier: 'silver' },
-    21: { message: "Three weeks! Science says this is habit territory", tier: 'gold' },
-    30: { message: "A full month! You're becoming someone new", tier: 'gold' },
-    100: { message: "LEGENDARY! 100 days of dedication", tier: 'platinum' }
-  },
-
-  // Track acknowledged milestones (stored in session to not repeat)
-  acknowledgedMilestones: new Set(),
-
-  // Recovery messages for broken streaks
-  RECOVERY_MESSAGES: [
-    "Your {best}-day streak proves you can do this. Start fresh today.",
-    "You've done {best} days before. That strength is still in you.",
-    "Streaks end, but your progress doesn't. Day 1 again?",
-    "Every master was once a beginner. Your {best}-day best awaits you again."
-  ],
-
   // Helper to escape HTML for safe insertion (used only for static content with dynamic attributes)
   escapeAttr(str) {
     return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   },
 
-  // Get visual streak icon based on streak length
-  // 1-6: single flame, 7-29: double flame, 30-99: fire+star, 100+: crown
-  getStreakIcon(streak) {
-    if (streak >= 100) return '\u{1F451}'; // Crown
-    if (streak >= 30) return '\u{1F31F}';  // Star
-    if (streak >= 7) return '\u{1F525}\u{1F525}'; // Double flame
-    return '\u{1F525}'; // Single flame
-  },
-
-  // Check and celebrate milestone
-  async checkMilestone(habitId, streak) {
-    const milestoneKey = `${habitId}-${streak}`;
-    if (this.acknowledgedMilestones.has(milestoneKey)) return;
-
-    const milestone = this.MILESTONES[streak];
-    if (!milestone) return;
-
-    // Mark as acknowledged
-    this.acknowledgedMilestones.add(milestoneKey);
-
-    // Celebrate!
-    if (typeof Confetti !== 'undefined') {
-      Confetti.celebrate(milestone.tier);
-    }
-
-    if (typeof Animations !== 'undefined') {
-      const habitItem = document.querySelector(`[data-habit-id="${habitId}"]`)?.closest('.habit-item');
-      if (habitItem) {
-        Animations.streakMilestone(habitItem, milestone.tier, streak);
-      }
-    }
-
-    // Show milestone toast
-    if (typeof Toast !== 'undefined') {
-      Toast.success(milestone.message);
-    }
-  },
-
-  // Show recovery message for broken streaks
-  async showRecoveryMessage(habitId, currentStreak, bestStreak) {
-    if (currentStreak !== 0 || bestStreak < 7) return;
-
-    // Only show recovery message once per session per habit
-    const recoveryKey = `recovery-${habitId}`;
-    if (this.acknowledgedMilestones.has(recoveryKey)) return;
-    this.acknowledgedMilestones.add(recoveryKey);
-
-    const message = this.RECOVERY_MESSAGES[Math.floor(Math.random() * this.RECOVERY_MESSAGES.length)]
-      .replace('{best}', bestStreak);
-
-    // Show as a special recovery notification
-    const habitsListEl = document.getElementById('habitsList');
-    if (habitsListEl && !document.querySelector('.recovery-message')) {
-      const recoveryEl = document.createElement('div');
-      recoveryEl.className = 'recovery-message';
-      recoveryEl.textContent = message;
-      habitsListEl.parentNode.insertBefore(recoveryEl, habitsListEl);
-
-      // Auto-remove after 10 seconds
-      setTimeout(() => recoveryEl.remove(), 10000);
-    }
-  },
-
   async init() {
     this.selectedDate = Storage.formatDate(new Date());
 
-    await this.renderDaysRemaining();
-    this.renderTodayTitle();
+    this.renderDateLabel();
 
     // Batch initial data fetch for better performance
     const [habits, entries, freezes] = await Promise.all([
@@ -108,49 +24,20 @@ const App = {
     // Render with pre-fetched data
     await this.renderChart();
     await this.renderHabitsWithData(habits, entries, freezes);
-    await this.renderStreaksWithData(habits, entries, freezes);
     await this.updateHabitCounterWithData(habits, entries);
     await this.initWebsitesSection();
     this.bindEvents();
-
-    // Show onboarding for new users
-    if (typeof Onboarding !== 'undefined') {
-      await Onboarding.maybeStartOnboarding();
-    }
   },
 
-  // Render today's date as the title
-  renderTodayTitle() {
-    const title = document.querySelector('.today-title');
-    if (!title) return;
+  // Render date label (e.g. "apr 8")
+  renderDateLabel() {
+    const el = document.getElementById('dateLabel');
+    if (!el) return;
 
     const today = new Date();
-    const options = { weekday: 'long', month: 'short', day: 'numeric' };
-    title.textContent = today.toLocaleDateString('en-US', options);
-  },
-
-  // Render day of the year (progress-framed instead of loss-framed)
-  async renderDaysRemaining() {
-    const today = new Date();
-    const year = today.getFullYear();
-    const startOfYear = new Date(year, 0, 1);
-    const diff = today - startOfYear;
-    const dayOfYear = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-    // Rotating encouraging subtitles
-    const subtitles = [
-      "Make it count",
-      "You're building momentum",
-      "Every day matters",
-      "Keep showing up",
-      "Progress over perfection",
-      "Small steps, big results",
-      "Today is your opportunity"
-    ];
-    const subtitleIndex = dayOfYear % subtitles.length;
-
-    document.getElementById('daysCount').textContent = `Day ${dayOfYear}`;
-    document.getElementById('daysLabel').textContent = subtitles[subtitleIndex];
+    const month = today.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+    const day = today.getDate();
+    el.textContent = `${month} ${day}`;
   },
 
   // Render the year chart
@@ -161,11 +48,11 @@ const App = {
 
   // Habit templates for quick start
   habitTemplates: [
-    { name: 'Exercise', type: 'binary', target: 1, icon: '\u{1F3CB}' },
-    { name: 'Read', type: 'binary', target: 1, icon: '\u{1F4D6}' },
-    { name: 'Meditate', type: 'binary', target: 1, icon: '\u{1F9D8}' },
-    { name: 'Water', type: 'count', target: 8, icon: '\u{1F4A7}' },
-    { name: 'Sleep 8h', type: 'binary', target: 1, icon: '\u{1F634}' }
+    { name: 'exercise', type: 'binary', target: 1 },
+    { name: 'read', type: 'binary', target: 1 },
+    { name: 'meditate', type: 'binary', target: 1 },
+    { name: 'water', type: 'count', target: 8 },
+    { name: 'sleep 8h', type: 'binary', target: 1 }
   ],
 
   // Render today's habits or selected day
@@ -188,19 +75,14 @@ const App = {
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state';
 
-      const icon = document.createElement('div');
-      icon.className = 'empty-state-icon';
-      icon.textContent = '\u{1F4CB}'; // clipboard emoji
-
       const title = document.createElement('div');
       title.className = 'empty-state-title';
-      title.textContent = 'Start your habit journey';
+      title.textContent = 'no habits yet';
 
       const text = document.createElement('div');
       text.className = 'empty-state-text';
-      text.textContent = 'Pick a template or create your own';
+      text.textContent = 'pick a template or create your own';
 
-      emptyState.appendChild(icon);
       emptyState.appendChild(title);
       emptyState.appendChild(text);
 
@@ -214,17 +96,7 @@ const App = {
         btn.dataset.templateName = template.name;
         btn.dataset.templateType = template.type;
         btn.dataset.templateTarget = template.target;
-
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'template-icon';
-        iconSpan.textContent = template.icon;
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'template-name';
-        nameSpan.textContent = template.name;
-
-        btn.appendChild(iconSpan);
-        btn.appendChild(nameSpan);
+        btn.textContent = template.name;
         templateGrid.appendChild(btn);
       }
 
@@ -242,9 +114,8 @@ const App = {
           try {
             await Storage.saveHabit(habit);
             await this.renderHabits();
-            await this.renderStreaks();
             await this.updateHabitCounter();
-            Toast.success(`Added "${name}" habit`);
+            Toast.success(`added "${name}"`);
           } catch (error) {
             Toast.error(error.message);
           }
@@ -268,7 +139,7 @@ const App = {
     const selectedDateObj = new Date(this.selectedDate + 'T00:00:00');
     const todayDateObj = new Date(todayStr + 'T00:00:00');
     const isPastOrToday = selectedDateObj <= todayDateObj;
-    const canEdit = isPastOrToday; // Allow editing today and past dates, not future
+    const canEdit = isPastOrToday;
 
     for (const habit of habits) {
       // Check if habit existed on the selected date
@@ -309,11 +180,11 @@ const App = {
         nameSpan.textContent = habit.name;
         habitItem.appendChild(nameSpan);
 
-        // Add inline streak for today view with visual level
+        // Inline streak for today view (plain number)
         if (isToday && streak > 0) {
           const streakSpan = document.createElement('span');
           streakSpan.className = 'habit-inline-streak';
-          streakSpan.textContent = `${this.getStreakIcon(streak)}${streak}`;
+          streakSpan.textContent = `${streak}d`;
           habitItem.appendChild(streakSpan);
         }
       } else {
@@ -322,11 +193,11 @@ const App = {
         nameSpan.textContent = habit.name;
         habitItem.appendChild(nameSpan);
 
-        // Add inline streak for today view with visual level (before counter)
+        // Inline streak for today view (plain number)
         if (isToday && streak > 0) {
           const streakSpan = document.createElement('span');
           streakSpan.className = 'habit-inline-streak';
-          streakSpan.textContent = `${this.getStreakIcon(streak)}${streak}`;
+          streakSpan.textContent = `${streak}d`;
           habitItem.appendChild(streakSpan);
         }
 
@@ -396,163 +267,6 @@ const App = {
     this.bindHabitEvents();
   },
 
-// Render streaks in the right panel with horizontal year charts
-  async renderStreaks() {
-    const [habits, entries, freezes] = await Promise.all([
-      Storage.getHabits(),
-      Storage.getAllEntries(),
-      Storage.getStreakFreezes()
-    ]);
-    return this.renderStreaksWithData(habits, entries, freezes);
-  },
-
-  // Render streaks with pre-fetched data (for batched loading)
-  async renderStreaksWithData(habits, entries, freezes) {
-    const container = document.getElementById('streaksList');
-
-    // Clear container
-    container.innerHTML = '';
-
-    if (habits.length === 0) {
-      const emptyState = document.createElement('div');
-      emptyState.className = 'empty-state';
-
-      const icon = document.createElement('div');
-      icon.className = 'empty-state-icon';
-      icon.textContent = '\u{1F4CA}'; // chart emoji
-
-      const title = document.createElement('div');
-      title.className = 'empty-state-title';
-      title.textContent = 'No habits yet';
-
-      const text = document.createElement('div');
-      text.className = 'empty-state-text';
-      text.textContent = 'Add habits to see your yearly progress here';
-
-      emptyState.appendChild(icon);
-      emptyState.appendChild(title);
-      emptyState.appendChild(text);
-      container.appendChild(emptyState);
-      return;
-    }
-
-    // Calculate all streaks and stats
-    const streaksData = [];
-    let overallBestStreak = 0;
-    let totalCompleted = 0;
-    for (const habit of habits) {
-      const streak = await Habits.calculateStreak(habit.id);
-      const bestStreak = await Habits.calculateBestStreak(habit.id);
-      const stats = await Habits.getCompletionStats(habit.id);
-      streaksData.push({ habit, streak, bestStreak, stats });
-      if (bestStreak > overallBestStreak) overallBestStreak = bestStreak;
-      totalCompleted += stats.completedDays;
-    }
-
-    // Build streak list with horizontal year charts
-    const streakList = document.createElement('div');
-    streakList.className = 'streak-list-with-charts';
-
-    for (const { habit, streak, stats } of streaksData) {
-      const completionPercent = Math.round(stats.completionRate * 100);
-
-      const row = document.createElement('div');
-      row.className = 'streak-row-with-chart';
-      row.dataset.habitId = habit.id;
-
-      const header = document.createElement('div');
-      header.className = 'streak-row-header';
-
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'streak-row-name';
-      nameSpan.textContent = habit.name;
-
-      const statsSpan = document.createElement('span');
-      statsSpan.className = 'streak-row-stats';
-
-      const completionSpan = document.createElement('span');
-      completionSpan.className = 'streak-completion';
-      completionSpan.textContent = `${completionPercent}%`;
-
-      const valueSpan = document.createElement('span');
-      valueSpan.className = 'streak-row-value';
-
-      const fireSpan = document.createElement('span');
-      fireSpan.className = 'streak-fire';
-      fireSpan.textContent = this.getStreakIcon(streak);
-
-      valueSpan.appendChild(fireSpan);
-      valueSpan.appendChild(document.createTextNode(` ${streak}`));
-
-      statsSpan.appendChild(completionSpan);
-      statsSpan.appendChild(valueSpan);
-      header.appendChild(nameSpan);
-      header.appendChild(statsSpan);
-
-      const chartContainer = document.createElement('div');
-      chartContainer.className = 'streak-horizontal-chart';
-      chartContainer.id = `horizontalChart-${habit.id}`;
-
-      row.appendChild(header);
-      row.appendChild(chartContainer);
-      streakList.appendChild(row);
-    }
-
-    container.appendChild(streakList);
-
-    // Add summary
-    const summary = document.createElement('div');
-    summary.className = 'streaks-summary';
-
-    const bestStreakItem = document.createElement('div');
-    bestStreakItem.className = 'summary-item';
-
-    const bestLabel = document.createElement('span');
-    bestLabel.className = 'summary-label';
-    bestLabel.textContent = 'Best streak (all habits)';
-
-    const bestValue = document.createElement('span');
-    bestValue.className = 'summary-value';
-    bestValue.textContent = `${overallBestStreak} day${overallBestStreak !== 1 ? 's' : ''}`;
-
-    bestStreakItem.appendChild(bestLabel);
-    bestStreakItem.appendChild(bestValue);
-
-    const totalItem = document.createElement('div');
-    totalItem.className = 'summary-item';
-
-    const totalLabel = document.createElement('span');
-    totalLabel.className = 'summary-label';
-    totalLabel.textContent = 'Total completions';
-
-    const totalValue = document.createElement('span');
-    totalValue.className = 'summary-value';
-    totalValue.textContent = String(totalCompleted);
-
-    totalItem.appendChild(totalLabel);
-    totalItem.appendChild(totalValue);
-
-    summary.appendChild(bestStreakItem);
-    summary.appendChild(totalItem);
-    container.appendChild(summary);
-
-    // Render horizontal year charts for each habit
-    for (const { habit } of streaksData) {
-      const chartEl = document.getElementById(`horizontalChart-${habit.id}`);
-      if (chartEl) {
-        await Chart.renderHorizontalYearChart(chartEl, habit.id);
-      }
-    }
-
-    // Bind click events for habit detail
-    container.querySelectorAll('.streak-row-with-chart').forEach(row => {
-      row.addEventListener('click', () => {
-        const habitId = row.dataset.habitId;
-        this.showHabitDetail(habitId);
-      });
-    });
-  },
-
   // Currently viewed habit in detail modal
   detailHabitId: null,
 
@@ -568,29 +282,24 @@ const App = {
     const bestStreak = await Habits.calculateBestStreak(habitId);
     const stats = await Habits.getCompletionStats(habitId);
 
-    // Format creation date
     const createdDate = new Date(habit.createdAt);
     const formattedDate = createdDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
-    });
+    }).toLowerCase();
 
-    // Populate modal content
     document.getElementById('habitDetailName').textContent = habit.name;
     document.getElementById('habitDetailCurrentStreak').textContent = currentStreak;
     document.getElementById('habitDetailBestStreak').textContent = bestStreak;
     document.getElementById('habitDetailCompletionRate').textContent = `${Math.round(stats.completionRate * 100)}%`;
     document.getElementById('habitDetailCreatedAt').textContent = formattedDate;
 
-    // Update freeze section
     await this.updateFreezeSection(habitId);
 
-    // Render year chart
     const chartContainer = document.getElementById('habitDetailYearChart');
     await Chart.renderHabitYearChart(chartContainer, habitId);
 
-    // Show modal
     this.openModal('habitDetailModal');
   },
 
@@ -600,10 +309,8 @@ const App = {
     const habitFreezes = freezes[habitId] || [];
     const freezeCount = habitFreezes.length;
 
-    // Update freeze count display
     document.getElementById('freezeCount').textContent = `${freezeCount} used`;
 
-    // Check if yesterday was missed and can be frozen
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = Storage.formatDate(yesterday);
@@ -617,22 +324,19 @@ const App = {
 
     const freezeBtn = document.getElementById('freezeYesterdayBtn');
     if (yesterdayCompleted) {
-      freezeBtn.textContent = 'Yesterday completed';
+      freezeBtn.textContent = 'yesterday completed';
       freezeBtn.disabled = true;
     } else if (yesterdayFrozen) {
-      freezeBtn.textContent = 'Yesterday frozen';
+      freezeBtn.textContent = 'yesterday frozen';
       freezeBtn.disabled = true;
     } else if (yesterdayStr < habit.createdAt) {
-      freezeBtn.textContent = 'Habit not created yet';
+      freezeBtn.textContent = 'habit not created yet';
       freezeBtn.disabled = true;
     } else {
-      freezeBtn.textContent = 'Freeze Yesterday';
+      freezeBtn.textContent = 'freeze yesterday';
       freezeBtn.disabled = false;
     }
   },
-
-  // Track if we've already celebrated today
-  _celebratedToday: false,
 
   // Update the habit counter display
   async updateHabitCounter() {
@@ -641,17 +345,14 @@ const App = {
     return this.updateHabitCounterWithData(habits, entries);
   },
 
-  // Update habit counter with pre-fetched data (for batched loading)
+  // Update habit counter with pre-fetched data
   async updateHabitCounterWithData(habits, entries) {
     const count = habits.length;
     const max = Storage.MAX_HABITS;
-    const counterEl = document.getElementById('habitCounter');
     const addBtn = document.getElementById('addHabitBtn');
     const todayStr = Storage.formatDate(new Date());
     const dayEntries = entries[todayStr] || {};
-    const habitsListEl = document.getElementById('habitsList');
 
-    // Count completed habits for today
     let completedToday = 0;
     for (const habit of habits) {
       const entry = dayEntries[habit.id];
@@ -660,58 +361,13 @@ const App = {
       }
     }
 
-    const allComplete = count > 0 && completedToday === count;
-
-    // Update progress ring
-    const progressRingFill = document.getElementById('progressRingFill');
-    const progressRingText = document.getElementById('progressRingText');
-    const progressRingContainer = document.getElementById('progressRingContainer');
-
-    if (progressRingFill && progressRingText) {
-      const circumference = 2 * Math.PI * 16; // r=16
-      const progress = count > 0 ? completedToday / count : 0;
-      const offset = circumference * (1 - progress);
-
-      progressRingFill.style.strokeDashoffset = offset;
-      progressRingText.textContent = `${completedToday}/${count}`;
-
-      if (allComplete && count > 0) {
-        progressRingFill.classList.add('all-done');
-        progressRingText.classList.add('all-done');
+    // Update progress text
+    const progressEl = document.getElementById('habitProgress');
+    if (progressEl) {
+      if (count > 0) {
+        progressEl.textContent = `${completedToday}/${count}`;
       } else {
-        progressRingFill.classList.remove('all-done');
-        progressRingText.classList.remove('all-done');
-      }
-
-      // Hide ring if no habits
-      if (progressRingContainer) {
-        progressRingContainer.style.display = count > 0 ? 'flex' : 'none';
-      }
-    }
-
-    if (counterEl) {
-      if (allComplete) {
-        counterEl.textContent = `${count} of ${count} complete`;
-        counterEl.classList.add('all-complete');
-        counterEl.classList.remove('at-limit');
-      } else {
-        counterEl.textContent = `${completedToday} of ${count} complete`;
-        counterEl.classList.remove('all-complete');
-        counterEl.classList.remove('at-limit');
-      }
-    }
-
-    // Trigger celebration when all habits are complete (only once per session)
-    if (allComplete && !this._celebratedToday && this.selectedDate === todayStr) {
-      this._celebratedToday = true;
-      this.triggerCelebration();
-    }
-
-    // Remove celebration message if not all complete
-    if (!allComplete) {
-      const existingMessage = document.querySelector('.celebration-message');
-      if (existingMessage) {
-        existingMessage.remove();
+        progressEl.textContent = '';
       }
     }
 
@@ -721,54 +377,19 @@ const App = {
     }
   },
 
-  // Trigger celebration effects
-  triggerCelebration() {
-    const habitsListEl = document.getElementById('habitsList');
-    const addHabitSection = document.querySelector('.add-habit-section');
-
-    // Add glow animation
-    if (habitsListEl) {
-      habitsListEl.classList.add('celebrating');
-      setTimeout(() => {
-        habitsListEl.classList.remove('celebrating');
-      }, 1500);
-    }
-
-    // Trigger confetti
-    if (typeof Confetti !== 'undefined') {
-      Confetti.celebrate();
-    }
-
-    // Add celebration message
-    if (addHabitSection && !document.querySelector('.celebration-message')) {
-      const messages = [
-        "Perfect day! You're building something great.",
-        "All habits complete! Keep the momentum going.",
-        "Amazing! Every day like this shapes who you become.",
-        "You did it! Small wins lead to big transformations."
-      ];
-      const message = messages[Math.floor(Math.random() * messages.length)];
-
-      const messageEl = document.createElement('div');
-      messageEl.className = 'celebration-message';
-      messageEl.textContent = message;
-      addHabitSection.insertAdjacentElement('beforebegin', messageEl);
-    }
-  },
-
   // Select a date to view
   async selectDate(dateStr) {
     this.selectedDate = dateStr;
     const todayStr = Storage.formatDate(new Date());
-    const title = document.querySelector('.today-title');
+    const dateLabel = document.getElementById('dateLabel');
 
     if (dateStr === todayStr) {
-      this.renderTodayTitle();
+      this.renderDateLabel();
     } else {
-      // Format the selected date nicely
       const selectedDate = new Date(dateStr + 'T00:00:00');
-      const options = { weekday: 'long', month: 'short', day: 'numeric' };
-      title.textContent = selectedDate.toLocaleDateString('en-US', options);
+      const month = selectedDate.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+      const day = selectedDate.getDate();
+      dateLabel.textContent = `${month} ${day}`;
     }
 
     // Update selected cell styling
@@ -789,7 +410,6 @@ const App = {
     const container = document.getElementById('selectedDayDetails');
     const todayStr = Storage.formatDate(new Date());
 
-    // Clear container safely
     container.innerHTML = '';
 
     if (dateStr === todayStr) {
@@ -798,7 +418,6 @@ const App = {
 
     const rate = await Habits.getCompletionRate(dateStr);
 
-    // Build DOM safely to prevent XSS
     const details = document.createElement('div');
     details.className = 'day-details';
 
@@ -821,38 +440,12 @@ const App = {
     document.querySelectorAll('.habit-checkbox input').forEach(checkbox => {
       checkbox.addEventListener('change', async (e) => {
         const habitId = e.target.dataset.habitId;
-        const habitItem = e.target.closest('.habit-item');
         const value = e.target.checked ? 1 : 0;
-        const wasCompleted = habitItem.classList.contains('completed');
 
-        habitItem.classList.add('saving');
         await Storage.saveEntry(this.selectedDate, habitId, value);
-
-        // Trigger success pulse if completing (not uncompleting)
-        const shouldPulse = value === 1 && !wasCompleted;
-
         await this.renderChart();
         await this.renderHabits();
-        await this.renderStreaks();
         await this.updateHabitCounter();
-
-        // Apply animation after re-render
-        if (shouldPulse) {
-          const newHabitItem = document.querySelector(`[data-habit-id="${habitId}"]`)?.closest('.habit-item');
-          if (newHabitItem) {
-            // Variable reward - 20% chance of enhanced feedback
-            if (typeof Animations !== 'undefined' && Animations.maybeVariableReward()) {
-              Animations.enhancedCompletion(newHabitItem);
-            } else {
-              newHabitItem.classList.add('success-pulse');
-              setTimeout(() => newHabitItem.classList.remove('success-pulse'), 600);
-            }
-          }
-
-          // Check for milestone
-          const streak = await Habits.calculateStreak(habitId);
-          await this.checkMilestone(habitId, streak);
-        }
       });
     });
 
@@ -860,47 +453,17 @@ const App = {
     document.querySelectorAll('.counter-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const habitId = e.target.dataset.habitId;
-        const habitItem = e.target.closest('.habit-item');
         const isPlus = e.target.classList.contains('plus');
-        const wasCompleted = habitItem.classList.contains('completed');
 
         const habits = await Storage.getHabits();
-        const habit = habits.find(h => h.id === habitId);
         const entries = await Storage.getAllEntries();
         const entry = entries[this.selectedDate]?.[habitId] || { value: 0 };
         const newValue = Math.max(0, entry.value + (isPlus ? 1 : -1));
 
-        // Check if this will complete the habit
-        const willComplete = habit && newValue >= habit.target;
-
-        habitItem.classList.add('saving');
         await Storage.saveEntry(this.selectedDate, habitId, newValue);
-
-        // Trigger success pulse if just reached target
-        const shouldPulse = willComplete && !wasCompleted;
-
         await this.renderChart();
         await this.renderHabits();
-        await this.renderStreaks();
         await this.updateHabitCounter();
-
-        // Apply animation after re-render
-        if (shouldPulse) {
-          const newHabitItem = document.querySelector(`[data-habit-id="${habitId}"]`)?.closest('.habit-item');
-          if (newHabitItem) {
-            // Variable reward - 20% chance of enhanced feedback
-            if (typeof Animations !== 'undefined' && Animations.maybeVariableReward()) {
-              Animations.enhancedCompletion(newHabitItem);
-            } else {
-              newHabitItem.classList.add('success-pulse');
-              setTimeout(() => newHabitItem.classList.remove('success-pulse'), 600);
-            }
-          }
-
-          // Check for milestone
-          const streak = await Habits.calculateStreak(habitId);
-          await this.checkMilestone(habitId, streak);
-        }
       });
     });
   },
@@ -918,7 +481,7 @@ const App = {
     A11y.closeModal(modal);
   },
 
-// Bind global events
+  // Bind global events
   bindEvents() {
     // Website usage toggle (collapsible)
     const websitesToggle = document.getElementById('websitesToggle');
@@ -933,6 +496,9 @@ const App = {
 
     // Close website detail modal
     document.getElementById('closeDetailBtn').addEventListener('click', () => {
+      this.closeModal('websiteDetailModal');
+    });
+    document.getElementById('closeDetailBtnX').addEventListener('click', () => {
       this.closeModal('websiteDetailModal');
     });
 
@@ -951,17 +517,14 @@ const App = {
 
       await Storage.addStreakFreeze(this.detailHabitId, yesterdayStr);
 
-      // Update displays
       await this.updateFreezeSection(this.detailHabitId);
       const currentStreak = await Habits.calculateStreak(this.detailHabitId);
       document.getElementById('habitDetailCurrentStreak').textContent = currentStreak;
 
-      // Refresh main views
-      await this.renderStreaks();
       await this.renderHabits();
       await this.renderChart();
 
-      Toast.success('Streak protected! Yesterday is now frozen.');
+      Toast.success('streak protected');
     });
 
     // Website category change in detail modal
@@ -1022,8 +585,8 @@ const App = {
       const isCount = e.target.value === 'count';
       targetGroup.style.display = isCount ? 'block' : 'none';
       hint.textContent = isCount
-        ? 'Set a daily goal to reach (e.g., 8 glasses of water)'
-        : 'Check off when completed';
+        ? 'set a daily goal to reach'
+        : 'check off when completed';
     });
 
     // Add habit form submit
@@ -1044,7 +607,6 @@ const App = {
         this.hideFormError();
 
         await this.renderHabits();
-        await this.renderStreaks();
         await this.updateHabitCounter();
       } catch (error) {
         this.showFormError(error.message);
@@ -1067,7 +629,7 @@ const App = {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `habit-tracker-${Storage.formatDate(new Date())}.json`;
+      a.download = `foxhole-${Storage.formatDate(new Date())}.json`;
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -1088,11 +650,10 @@ const App = {
           await Storage.importData(event.target.result);
           await this.renderChart();
           await this.renderHabits();
-          await this.renderStreaks();
           await this.updateHabitCounter();
-          Toast.success('Data imported successfully!');
+          Toast.success('data imported');
         } catch (error) {
-          Toast.error('Import failed: ' + error.message);
+          Toast.error('import failed: ' + error.message);
         }
       };
       reader.readAsText(file);
@@ -1138,13 +699,12 @@ const App = {
     const habits = await Storage.getHabits();
     const container = document.getElementById('habitsManageList');
 
-    // Clear container
     container.innerHTML = '';
 
     if (habits.length === 0) {
       const noHabits = document.createElement('div');
       noHabits.className = 'no-habits';
-      noHabits.textContent = 'No habits to manage.';
+      noHabits.textContent = 'no habits to manage.';
       container.appendChild(noHabits);
     } else {
       for (const habit of habits) {
@@ -1157,7 +717,7 @@ const App = {
 
         const typeSpan = document.createElement('span');
         typeSpan.className = 'habit-manage-type';
-        typeSpan.textContent = habit.type === 'binary' ? 'Binary' : `Count (${habit.target})`;
+        typeSpan.textContent = habit.type === 'binary' ? 'yes/no' : `count (${habit.target})`;
 
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'habit-manage-actions';
@@ -1165,12 +725,12 @@ const App = {
         const editBtn = document.createElement('button');
         editBtn.className = 'edit-habit-btn';
         editBtn.dataset.habitId = habit.id;
-        editBtn.textContent = 'Edit';
+        editBtn.textContent = 'edit';
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-habit-btn';
         deleteBtn.dataset.habitId = habit.id;
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.textContent = 'delete';
 
         actionsDiv.appendChild(editBtn);
         actionsDiv.appendChild(deleteBtn);
@@ -1196,10 +756,10 @@ const App = {
           const habitId = e.target.dataset.habitId;
           const habit = habits.find(h => h.id === habitId);
           const confirmed = await Confirm.show({
-            title: 'Delete Habit',
-            message: `Delete "${habit?.name || 'this habit'}"? This will permanently remove all tracking history. This cannot be undone.`,
-            confirmText: 'Delete',
-            cancelText: 'Keep',
+            title: 'delete habit',
+            message: `delete "${habit?.name || 'this habit'}"? this will permanently remove all tracking history.`,
+            confirmText: 'delete',
+            cancelText: 'keep',
             destructive: true
           });
           if (confirmed) {
@@ -1207,9 +767,8 @@ const App = {
             await this.renderSettingsModal();
             await this.renderChart();
             await this.renderHabits();
-            await this.renderStreaks();
             await this.updateHabitCounter();
-            Toast.success('Habit deleted');
+            Toast.success('habit deleted');
           }
         });
       });
@@ -1224,29 +783,23 @@ const App = {
     const categories = await Storage.getWebsiteCategories();
     const container = document.getElementById('categoriesManageList');
 
-    // Clear container
     container.innerHTML = '';
 
     for (const category of categories) {
       const item = document.createElement('div');
       item.className = 'category-manage-item';
 
-      const colorDot = document.createElement('span');
-      colorDot.className = 'category-color-dot';
-      colorDot.style.background = category.color;
-
       const nameSpan = document.createElement('span');
       nameSpan.className = 'category-manage-name';
       nameSpan.textContent = category.name;
 
-      item.appendChild(colorDot);
       item.appendChild(nameSpan);
 
       if (!category.isDefault) {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-category-btn';
         deleteBtn.dataset.categoryId = category.id;
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.textContent = 'delete';
         item.appendChild(deleteBtn);
       }
 
@@ -1259,17 +812,17 @@ const App = {
         const categoryId = e.target.dataset.categoryId;
         const category = categories.find(c => c.id === categoryId);
         const confirmed = await Confirm.show({
-          title: 'Delete Category',
-          message: `Delete "${category?.name || 'this category'}"? Websites in this category will become uncategorized.`,
-          confirmText: 'Delete',
-          cancelText: 'Keep',
+          title: 'delete category',
+          message: `delete "${category?.name || 'this category'}"? websites in this category will become uncategorized.`,
+          confirmText: 'delete',
+          cancelText: 'keep',
           destructive: true
         });
         if (confirmed) {
           await Storage.deleteWebsiteCategory(categoryId);
           await this.renderCategoriesManageList();
           await this.renderWebsites();
-          Toast.success('Category deleted');
+          Toast.success('category deleted');
         }
       });
     });
@@ -1299,7 +852,7 @@ const App = {
       grouped[cat.id] = { category: cat, websites: [], totalSeconds: 0 };
     }
     grouped['uncategorized'] = {
-      category: { id: 'uncategorized', name: 'Other', color: '#666' },
+      category: { id: 'uncategorized', name: 'other', color: '#504945' },
       websites: [],
       totalSeconds: 0
     };
@@ -1312,18 +865,14 @@ const App = {
       }
     }
 
-    // Clear container
     container.innerHTML = '';
 
-    // Render each category group (only those with activity)
     for (const cat of categories) {
       const group = grouped[cat.id];
-      // Only render categories that have websites with time
       if (group.totalSeconds > 0) {
         container.appendChild(this.renderCategoryGroup(group));
       }
     }
-    // Add uncategorized if has websites
     if (grouped['uncategorized'].totalSeconds > 0) {
       container.appendChild(this.renderCategoryGroup(grouped['uncategorized']));
     }
@@ -1336,7 +885,7 @@ const App = {
     });
   },
 
-  // Render a single category group - returns DOM element
+  // Render a single category group
   renderCategoryGroup(group) {
     const { category, websites, totalSeconds } = group;
 
@@ -1346,10 +895,6 @@ const App = {
     const header = document.createElement('div');
     header.className = 'category-group-header';
 
-    const colorBar = document.createElement('span');
-    colorBar.className = 'category-color-bar';
-    colorBar.style.background = category.color;
-
     const nameSpan = document.createElement('span');
     nameSpan.className = 'category-group-name';
     nameSpan.textContent = category.name;
@@ -1358,7 +903,6 @@ const App = {
     timeSpan.className = 'category-group-time';
     timeSpan.textContent = Websites.formatTime(totalSeconds);
 
-    header.appendChild(colorBar);
     header.appendChild(nameSpan);
     header.appendChild(timeSpan);
     groupEl.appendChild(header);
@@ -1400,7 +944,6 @@ const App = {
   // Truncate domain for card display
   truncateDomain(domain) {
     let short = domain.replace(/^(www\.|m\.)/, '');
-    // Remove common TLDs for brevity
     short = short.replace(/\.(com|org|net|io|co)$/, '');
     if (short.length > 12) {
       short = short.substring(0, 11) + '...';
@@ -1415,26 +958,21 @@ const App = {
     const websites = await Websites.getTodayWebsites();
     const website = websites.find(w => w.domain === domain);
 
-    // Populate modal
     document.getElementById('detailFavicon').src = website?.favicon || `https://icons.duckduckgo.com/ip3/${domain}.ico`;
     document.getElementById('detailDomain').textContent = domain;
     document.getElementById('detailTodayTime').textContent = Websites.formatTime(website?.totalSeconds || 0);
 
-    // Populate category select (using safe DOM methods to prevent XSS)
     const categories = await Storage.getWebsiteCategories();
     const currentCategoryId = await Websites.getCategoryForDomain(domain);
     const select = document.getElementById('detailCategorySelect');
 
-    // Clear existing options
     select.innerHTML = '';
 
-    // Add uncategorized option
     const uncategorizedOption = document.createElement('option');
     uncategorizedOption.value = '';
-    uncategorizedOption.textContent = 'Uncategorized';
+    uncategorizedOption.textContent = 'uncategorized';
     select.appendChild(uncategorizedOption);
 
-    // Add category options using safe DOM methods
     for (const category of categories) {
       const option = document.createElement('option');
       option.value = category.id;
@@ -1445,33 +983,29 @@ const App = {
       select.appendChild(option);
     }
 
-    // Populate time limit section
     const settings = await Storage.getWebsiteSettings();
     const currentLimit = settings[domain]?.dailyLimitSeconds || null;
     const limitMinutes = currentLimit ? Math.floor(currentLimit / 60) : '';
     document.getElementById('timeLimitInput').value = limitMinutes;
 
-    // Show remaining time
     const remaining = await Websites.getRemainingTime(domain);
     const remainingEl = document.getElementById('remainingTime');
     if (remaining !== null) {
       remainingEl.textContent = remaining > 0
         ? `${Websites.formatTime(remaining)} remaining today`
-        : 'Limit reached - blocked';
+        : 'limit reached';
       remainingEl.classList.toggle('exceeded', remaining <= 0);
     } else {
       remainingEl.textContent = '';
       remainingEl.classList.remove('exceeded');
     }
 
-    // Render trend charts
     const weeklyTrend = await Websites.getWeeklyTrend(domain);
     const monthlyTrend = await Websites.getMonthlyTrend(domain);
 
     WebsiteChart.renderWeeklyBarChart(document.getElementById('weeklyTrendChart'), weeklyTrend);
     WebsiteChart.renderMonthlyLineChart(document.getElementById('monthlyTrendChart'), monthlyTrend);
 
-    // Show modal
     this.openModal('websiteDetailModal');
   },
 
@@ -1492,13 +1026,12 @@ const App = {
         dailyLimitSeconds: seconds
       });
 
-      // Update remaining time display
       const remaining = await Websites.getRemainingTime(this.selectedWebsiteDomain);
       const remainingEl = document.getElementById('remainingTime');
       if (remaining !== null) {
         remainingEl.textContent = remaining > 0
           ? `${Websites.formatTime(remaining)} remaining today`
-          : 'Limit reached - blocked';
+          : 'limit reached';
         remainingEl.classList.toggle('exceeded', remaining <= 0);
       } else {
         remainingEl.textContent = '';
@@ -1506,7 +1039,7 @@ const App = {
       }
 
       await this.renderWebsites();
-      Toast.success(seconds ? `Time limit set: ${minutes} minutes/day` : 'Time limit removed');
+      Toast.success(seconds ? `limit set: ${minutes}m/day` : 'limit removed');
     });
 
     // Edit habit type change
@@ -1516,8 +1049,8 @@ const App = {
       const isCount = e.target.value === 'count';
       targetGroup.style.display = isCount ? 'block' : 'none';
       hint.textContent = isCount
-        ? 'Set a daily goal to reach (e.g., 8 glasses of water)'
-        : 'Check off when completed';
+        ? 'set a daily goal to reach'
+        : 'check off when completed';
     });
 
     // Cancel edit habit
@@ -1540,20 +1073,18 @@ const App = {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    // Fill form with current values
     document.getElementById('editHabitId').value = habit.id;
     document.getElementById('editHabitName').value = habit.name;
     document.getElementById('editHabitType').value = habit.type;
     document.getElementById('editHabitTarget').value = habit.target || 1;
 
-    // Update UI based on type
     const targetGroup = document.getElementById('editTargetGroup');
     const hint = document.getElementById('editHabitTypeHint');
     const isCount = habit.type === 'count';
     targetGroup.style.display = isCount ? 'block' : 'none';
     hint.textContent = isCount
-      ? 'Set a daily goal to reach (e.g., 8 glasses of water)'
-      : 'Check off when completed';
+      ? 'set a daily goal to reach'
+      : 'check off when completed';
 
     this.openModal('editHabitModal');
   },
@@ -1561,7 +1092,7 @@ const App = {
   // Show keyboard shortcuts help
   showKeyboardShortcutsHelp() {
     if (typeof Toast !== 'undefined') {
-      Toast.info('Shortcuts: 1-5 toggle habits, j/k navigate, n new habit, Esc close');
+      Toast.info('shortcuts: 1-5 toggle habits, j/k navigate, n new habit, esc close');
     }
   },
 
@@ -1573,18 +1104,17 @@ const App = {
     const target = parseInt(document.getElementById('editHabitTarget').value) || 1;
 
     if (!name) {
-      Toast.error('Habit name is required');
+      Toast.error('habit name is required');
       return;
     }
 
     const habits = await Storage.getHabits();
     const habitIndex = habits.findIndex(h => h.id === habitId);
     if (habitIndex === -1) {
-      Toast.error('Habit not found');
+      Toast.error('habit not found');
       return;
     }
 
-    // Update habit (preserve createdAt)
     const updatedHabit = {
       ...habits[habitIndex],
       name: name,
@@ -1599,24 +1129,20 @@ const App = {
       document.getElementById('editHabitForm').reset();
 
       await this.renderHabits();
-      await this.renderStreaks();
       await this.updateHabitCounter();
-      Toast.success('Habit updated');
+      Toast.success('habit updated');
     } catch (error) {
-      Toast.error('Failed to update habit: ' + error.message);
+      Toast.error('failed to update: ' + error.message);
     }
   }
 };
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  // Don't handle shortcuts when typing in inputs
   if (e.target.matches('input, textarea, select')) return;
 
-  // Don't handle if modal is open (except Escape)
   const modalOpen = document.querySelector('.modal.show');
 
-  // Escape - close modal
   if (e.key === 'Escape' && modalOpen) {
     A11y.closeModal(modalOpen);
     return;
@@ -1658,7 +1184,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Space - Toggle selected habit (when habit item is focused)
+  // Space - Toggle selected habit
   if (e.key === ' ') {
     const focused = document.activeElement;
     if (focused.closest('.habit-item')) {
@@ -1671,7 +1197,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // n - New habit (if not at limit)
+  // n - New habit
   if (e.key === 'n') {
     const addBtn = document.getElementById('addHabitBtn');
     if (addBtn && !addBtn.disabled) {

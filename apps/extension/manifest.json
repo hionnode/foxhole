@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Habit Tracker",
+  "name": "Foxhole",
   "version": "2.0.0",
-  "description": "An elegant habit tracker that replaces your new tab page with a year visualization and mindful website time management",
+  "description": "Habit tracker and screen time monitor. Replaces your new tab.",
   "permissions": [
     "storage",
     "tabs",
@@ -28,5 +28,9 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["fonts/0xProto-Regular.ttf"],
+    "matches": ["http://*/*", "https://*/*"]
+  }]
 }

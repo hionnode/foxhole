@@ -3,69 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Time's Up</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <title>time's up</title>
   <style>
-    .blocked-container {
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #282828;
+      color: #ebdbb2;
+      font-family: '0xProto', monospace;
+      min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 40px;
       text-align: center;
+      padding: 24px;
     }
-    .blocked-icon { font-size: 64px; margin-bottom: 24px; }
-    .blocked-title { font-size: 32px; font-weight: 600; color: #fff; margin-bottom: 16px; }
-    .blocked-domain { font-size: 18px; color: #ff9500; margin-bottom: 8px; font-weight: 500; }
-    .blocked-message { font-size: 16px; color: #aaa; max-width: 400px; line-height: 1.6; margin-bottom: 32px; }
-    .blocked-time-info { padding: 16px 24px; background: #252525; border-radius: 8px; margin-bottom: 32px; }
-    .blocked-limit { font-size: 14px; color: #888; }
-    .blocked-reset { font-size: 14px; color: #50c878; margin-top: 8px; }
-
-    .productivity-section { width: 100%; max-width: 500px; }
-    .productivity-title { font-size: 16px; color: #50c878; margin-bottom: 16px; font-weight: 500; }
-    .productivity-list { display: flex; flex-direction: column; gap: 8px; }
-    .productivity-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: #252525;
-      border-radius: 8px;
-      text-decoration: none;
-      transition: background 0.2s, transform 0.2s;
+    .blocked-container { max-width: 400px; }
+    .blocked-title {
+      font-size: 20px;
+      font-weight: 400;
+      color: #ebdbb2;
+      margin-bottom: 16px;
     }
-    .productivity-item:hover {
-      background: #333;
-      transform: translateX(4px);
+    .blocked-domain {
+      font-size: 16px;
+      color: #d65d0e;
+      margin-bottom: 8px;
     }
-    .productivity-favicon { width: 24px; height: 24px; border-radius: 4px; }
-    .productivity-domain { flex: 1; color: #e0e0e0; font-size: 14px; }
-    .productivity-time { color: #4a9eff; font-size: 13px; font-weight: 500; }
-    .no-productivity { color: #666; font-size: 14px; padding: 16px; }
+    .blocked-limit {
+      font-size: 12px;
+      color: #a89984;
+      margin-top: 24px;
+    }
   </style>
 </head>
 <body>
   <div class="blocked-container">
-    <div class="blocked-icon">⏰</div>
-    <h1 class="blocked-title">Time's Up!</h1>
+    <h1 class="blocked-title">time's up.</h1>
     <p class="blocked-domain" id="blockedDomain">example.com</p>
-    <p class="blocked-message">
-      You've reached your daily time limit for this website.
-      Take a break and come back tomorrow!
-    </p>
-    <div class="blocked-time-info">
-      <p class="blocked-limit">Daily limit: <span id="dailyLimit">30 minutes</span></p>
-      <p class="blocked-reset">Resets at midnight</p>
-    </div>
-
-    <div class="productivity-section">
-      <h2 class="productivity-title">Do something productive instead:</h2>
-      <div class="productivity-list" id="productivityList">
-        <div class="no-productivity">Loading...</div>
-      </div>
-    </div>
+    <p class="blocked-limit">daily limit: <span id="dailyLimit">30 minutes</span></p>
   </div>
   <script src="js/blocked.js"></script>
 </body>
