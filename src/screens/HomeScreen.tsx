@@ -7,12 +7,14 @@ import { typography } from '@/theme/typography';
 import { useTimerStore } from '@/stores/timerStore';
 import { usePresetStore } from '@/stores/presetStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useUsageStore } from '@/stores/usageStore';
 import { isDndAccessGranted, requestDndAccess } from '@/native/DndManager';
-import { formatTime } from '@/utils/formatTime';
+import { formatTime, formatUsageTime } from '@/utils/formatTime';
 
 type RootStackParamList = {
   Tabs: undefined;
   Focus: undefined;
+  UsageDetail: undefined;
 };
 
 type HomeScreenNav = NativeStackNavigationProp<RootStackParamList>;
@@ -42,6 +44,10 @@ const HomeScreen = () => {
   const totalEver = useSessionStore((s) => s.totalEver);
   const streakDays = useSessionStore((s) => s.currentStreak);
 
+  const usageAccessGranted = useUsageStore((s) => s.usageAccessGranted);
+  const totalTimeMs = useUsageStore((s) => s.totalTimeMs);
+  const checkUsagePermission = useUsageStore((s) => s.checkPermission);
+  const refreshUsage = useUsageStore((s) => s.refreshUsage);
   const [dndGranted, setDndGranted] = useState(true);
 
   useEffect(() => {
@@ -49,8 +55,11 @@ const HomeScreen = () => {
       isDndAccessGranted()
         .then((granted) => setDndGranted(granted))
         .catch(() => {});
+      checkUsagePermission().then(() => {
+        refreshUsage();
+      });
     }
-  }, [isFocused]);
+  }, [isFocused, checkUsagePermission, refreshUsage]);
 
   const cycleToNextPreset = useCallback(() => {
     const currentIndex = presets.findIndex((p) => p.id === activePresetId);
@@ -159,6 +168,15 @@ const HomeScreen = () => {
             <Text style={styles.statsText}>
               {streakDays} day streak
             </Text>
+            {usageAccessGranted && (
+              <Pressable
+                onPress={() => navigation.navigate('UsageDetail')}
+                style={({ pressed }) => [pressed && styles.pressed]}>
+                <Text style={styles.statsText}>
+                  {formatUsageTime(totalTimeMs)} distractions {'>'}
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
         {!dndGranted && (

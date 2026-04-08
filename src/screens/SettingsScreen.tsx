@@ -13,6 +13,8 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { Stepper } from '@/components/Stepper';
 import { usePresetStore } from '@/stores/presetStore';
+import { useUsageStore } from '@/stores/usageStore';
+import { requestUsageAccess } from '@/native/UsageStats';
 import type { Preset, TimerDisplayMode } from '@/types';
 
 const CLASSIC_ID = 'classic';
@@ -34,8 +36,13 @@ const SettingsScreen = () => {
   const setDailyGoal = usePresetStore((s) => s.setDailyGoal);
   const setVibrationEnabled = usePresetStore((s) => s.setVibrationEnabled);
   const setTimerDisplayMode = usePresetStore((s) => s.setTimerDisplayMode);
+  const usageAccessGranted = useUsageStore((s) => s.usageAccessGranted);
+  const trackedApps = useUsageStore((s) => s.trackedApps);
+  const toggleApp = useUsageStore((s) => s.toggleApp);
+  const checkUsagePermission = useUsageStore((s) => s.checkPermission);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showTrackedApps, setShowTrackedApps] = useState(false);
 
   const handlePresetTap = useCallback(
     (id: string) => {
@@ -156,6 +163,64 @@ const SettingsScreen = () => {
           }
         />
       </View>
+
+      <Text style={styles.sectionHeader}>distraction tracking</Text>
+      {!usageAccessGranted ? (
+        <Pressable
+          onPress={() => {
+            requestUsageAccess().then(() => {
+              // Re-check after user returns
+              checkUsagePermission();
+            });
+          }}
+          style={({ pressed }) => [
+            styles.displayOption,
+            pressed && styles.pressed,
+          ]}>
+          <View style={styles.presetInfo}>
+            <Text style={styles.presetName}>grant usage access</Text>
+            <Text style={styles.presetSummary}>
+              shows time on distraction apps
+            </Text>
+          </View>
+        </Pressable>
+      ) : (
+        <>
+          <Pressable
+            onPress={() => setShowTrackedApps((v) => !v)}
+            style={({ pressed }) => [
+              styles.displayOption,
+              pressed && styles.pressed,
+            ]}>
+            <View style={styles.presetInfo}>
+              <Text style={styles.presetName}>manage tracked apps</Text>
+              <Text style={styles.presetSummary}>
+                tracking {trackedApps.filter((a) => a.enabled).length} apps
+              </Text>
+            </View>
+          </Pressable>
+          {showTrackedApps && (
+            <View style={styles.editorContainer}>
+              {trackedApps.map((app) => (
+                <View key={app.packageName} style={styles.toggleRow}>
+                  <Text style={styles.toggleLabel}>{app.label}</Text>
+                  <Switch
+                    value={app.enabled}
+                    onValueChange={() => toggleApp(app.packageName)}
+                    trackColor={{
+                      false: colors.background_elevated,
+                      true: colors.text_muted,
+                    }}
+                    thumbColor={
+                      app.enabled ? colors.text_primary : colors.text_muted
+                    }
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
 
       <Text style={styles.sectionHeader}>timer display</Text>
       <Pressable
