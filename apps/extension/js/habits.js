@@ -187,7 +187,5 @@ const Habits = {
       totalDays,
       completedDays
     };
-  },
-
-}
+  }
 };
