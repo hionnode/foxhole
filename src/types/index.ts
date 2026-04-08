@@ -20,6 +20,19 @@ export interface PomodoroState {
   isPaused: boolean;
 }
 
+export interface TrackedApp {
+  packageName: string;
+  label: string;
+  enabled: boolean;
+}
+
+export interface AppUsageData {
+  packageName: string;
+  label: string;
+  foregroundTimeMs: number;
+  openCount: number;
+}
+
 export interface Session {
   id: number;
   sessionType: SessionType;
