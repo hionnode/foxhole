@@ -9,6 +9,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.foxhole.dnd.DndManagerPackage
 import com.foxhole.immersive.ImmersiveModePackage
 import com.foxhole.service.FocusServicePackage
+import com.foxhole.usage.UsageStatsPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -21,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
           add(ImmersiveModePackage())
           add(DndManagerPackage())
           add(FocusServicePackage())
+          add(UsageStatsPackage())
         },
     )
   }

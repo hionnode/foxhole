@@ -83,6 +83,10 @@
 -keep class com.foxhole.immersive.ImmersiveModeModule { *; }
 -keep class com.foxhole.immersive.ImmersiveModePackage { *; }
 
+# UsageStats
+-keep class com.foxhole.usage.UsageStatsModule { *; }
+-keep class com.foxhole.usage.UsageStatsPackage { *; }
+
 # ============================================================================
 # General
 # ============================================================================
