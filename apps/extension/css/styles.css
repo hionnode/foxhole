@@ -47,6 +47,22 @@ body {
   display: flex;
   flex-direction: column;
   text-transform: lowercase;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(60, 56, 54, 0.25) 31px,
+      rgba(60, 56, 54, 0.25) 32px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 31px,
+      rgba(60, 56, 54, 0.25) 31px,
+      rgba(60, 56, 54, 0.25) 32px
+    );
+  background-attachment: fixed;
 }
 
 /* ============ Layout ============ */
@@ -109,7 +125,22 @@ body {
   cursor: default;
   color: inherit;
   font: inherit;
+  position: relative;
 }
+
+.section-header::before,
+.section-header::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  width: 2px;
+  height: 6px;
+  background: var(--text-muted);
+  opacity: 0.3;
+}
+
+.section-header::before { left: 0; }
+.section-header::after { right: 0; }
 
 .section-header h2 {
   font-size: 20px;
@@ -375,6 +406,33 @@ body {
   margin-left: -16px;
   margin-right: -16px;
   width: calc(100% + 32px);
+  position: relative;
+}
+
+.section-chart::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 19px,
+      rgba(80, 73, 69, 0.08) 19px,
+      rgba(80, 73, 69, 0.08) 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 19px,
+      rgba(80, 73, 69, 0.08) 19px,
+      rgba(80, 73, 69, 0.08) 20px
+    );
+  pointer-events: none;
+  border-radius: 2px;
 }
 
 .chart-container {
