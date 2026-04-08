@@ -41,17 +41,16 @@ const Chart = {
     return null; // Solid fill for 100%
   },
 
-  // Generate the year chart SVG (vertical layout)
+  // Generate the year chart SVG (horizontal layout — 53 columns x 7 rows)
   async render(container, onDayClick) {
     const today = new Date();
     const year = today.getFullYear();
     const startOfYear = new Date(year, 0, 1);
     const endOfYear = new Date(year, 11, 31);
 
-    // Calculate dimensions for vertical layout
-    // 7 columns (days of week) x 53 rows (weeks)
-    const cols = 7;
-    const rows = 53;
+    // Horizontal layout: 53 columns (weeks) x 7 rows (days of week)
+    const cols = 53;
+    const rows = 7;
     const width = cols * (this.cellSize + this.cellGap);
     const height = rows * (this.cellSize + this.cellGap);
 
@@ -59,6 +58,7 @@ const Chart = {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', width);
     svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('class', 'year-chart');
     svg.setAttribute('role', 'grid');
     svg.setAttribute('aria-label', `Year ${year} habit completion chart`);
@@ -79,9 +79,9 @@ const Chart = {
       const dayOfWeek = currentDate.getDay(); // 0 = Sunday
       const weekOfYear = Math.floor((dayOfYear - 1 + startOfYear.getDay()) / 7);
 
-      // Vertical layout: x is day of week, y is week of year
-      const x = dayOfWeek * (this.cellSize + this.cellGap);
-      const y = weekOfYear * (this.cellSize + this.cellGap);
+      // Horizontal layout: x is week of year, y is day of week
+      const x = weekOfYear * (this.cellSize + this.cellGap);
+      const y = dayOfWeek * (this.cellSize + this.cellGap);
 
       const isFuture = currentDate > today;
       const isToday = dateStr === todayStr;
@@ -228,8 +228,8 @@ const Chart = {
       const dayOfWeek = currentDate.getDay();
       const weekOfYear = Math.floor((dayOfYear - 1 + startOfYear.getDay()) / 7);
 
-      const x = dayOfWeek * (this.miniCellSize + this.miniCellGap);
-      const y = weekOfYear * (this.miniCellSize + this.miniCellGap);
+      const x = weekOfYear * (this.miniCellSize + this.miniCellGap);
+      const y = dayOfWeek * (this.miniCellSize + this.miniCellGap);
 
       const isFuture = currentDate > today;
       const isToday = dateStr === todayStr;
@@ -309,9 +309,9 @@ const Chart = {
     const startOfYear = new Date(year, 0, 1);
     const endOfYear = new Date(year, 11, 31);
 
-    // Calculate dimensions for vertical layout
-    const cols = 7;
-    const rows = 53;
+    // Horizontal layout: 53 columns (weeks) x 7 rows (days)
+    const cols = 53;
+    const rows = 7;
     const width = cols * (this.miniCellSize + this.miniCellGap);
     const height = rows * (this.miniCellSize + this.miniCellGap);
 
@@ -319,6 +319,7 @@ const Chart = {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', width);
     svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('class', 'mini-year-chart combined-chart');
 
     // Get overall completion rates (reuse main chart logic)
@@ -334,8 +335,8 @@ const Chart = {
       const dayOfWeek = currentDate.getDay();
       const weekOfYear = Math.floor((dayOfYear - 1 + startOfYear.getDay()) / 7);
 
-      const x = dayOfWeek * (this.miniCellSize + this.miniCellGap);
-      const y = weekOfYear * (this.miniCellSize + this.miniCellGap);
+      const x = weekOfYear * (this.miniCellSize + this.miniCellGap);
+      const y = dayOfWeek * (this.miniCellSize + this.miniCellGap);
 
       const isFuture = currentDate > today;
       const isToday = dateStr === todayStr;

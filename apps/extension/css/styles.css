@@ -52,10 +52,10 @@ body {
 /* ============ Layout ============ */
 
 .container {
-  max-width: 480px;
+  max-width: 640px;
   width: 100%;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -345,6 +345,8 @@ body {
 
 .chart-container svg {
   display: block;
+  width: 100%;
+  height: auto;
 }
 
 .selected-day-details {
