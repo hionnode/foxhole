@@ -213,6 +213,11 @@ const Storage = {
     return `${year}-${month}-${day}`;
   },
 
+  // Generate a prefixed unique id
+  generateId(prefix) {
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+
   // ============== Website Tracking Methods ==============
 
   // Default website categories

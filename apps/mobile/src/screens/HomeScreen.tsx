@@ -34,9 +34,7 @@ const HomeScreen = () => {
   const isFocused = useIsFocused();
   const startSession = useTimerStore((s) => s.startSession);
   const getActivePreset = usePresetStore((s) => s.getActivePreset);
-  const presets = usePresetStore((s) => s.presets);
-  const activePresetId = usePresetStore((s) => s.activePresetId);
-  const setActivePreset = usePresetStore((s) => s.setActivePreset);
+  const cyclePreset = usePresetStore((s) => s.cyclePreset);
   const dailyGoal = usePresetStore((s) => s.dailyGoal);
 
   const activePreset = getActivePreset();
@@ -52,29 +50,24 @@ const HomeScreen = () => {
   const [dndGranted, setDndGranted] = useState(true);
 
   useEffect(() => {
-    if (isFocused) {
-      isDndAccessGranted()
-        .then((granted) => setDndGranted(granted))
-        .catch(() => {});
-      checkUsagePermission().then(() => {
-        refreshUsage();
-      });
+    if (!isFocused) {
+      return;
     }
+    isDndAccessGranted()
+      .then(setDndGranted)
+      .catch(() => {});
+    checkUsagePermission().then(refreshUsage);
   }, [isFocused, checkUsagePermission, refreshUsage]);
 
   const cycleToNextPreset = useCallback(() => {
     triggerHaptic();
-    const currentIndex = presets.findIndex((p) => p.id === activePresetId);
-    const nextIndex = (currentIndex + 1) % presets.length;
-    setActivePreset(presets[nextIndex].id);
-  }, [presets, activePresetId, setActivePreset]);
+    cyclePreset(1);
+  }, [cyclePreset]);
 
   const cycleToPrevPreset = useCallback(() => {
     triggerHaptic();
-    const currentIndex = presets.findIndex((p) => p.id === activePresetId);
-    const prevIndex = (currentIndex - 1 + presets.length) % presets.length;
-    setActivePreset(presets[prevIndex].id);
-  }, [presets, activePresetId, setActivePreset]);
+    cyclePreset(-1);
+  }, [cyclePreset]);
 
   const beginSession = useCallback(() => {
     const preset = usePresetStore.getState().getActivePreset();

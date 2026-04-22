@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { storage } from './mmkv';
+import { persist } from 'zustand/middleware';
+import { mmkvJSONStorage } from './mmkv';
 import type { TrackedApp, AppUsageData } from '@/types';
 import {
   isUsageAccessGranted,
   getUsageStats,
 } from '@/native/UsageStats';
+import { getStartOfDay, getEndOfDay } from '@/utils/date';
 
 const DEFAULT_TRACKED_APPS: TrackedApp[] = [
   { packageName: 'com.instagram.android', label: 'instagram', enabled: true },
@@ -16,29 +17,6 @@ const DEFAULT_TRACKED_APPS: TrackedApp[] = [
   { packageName: 'com.reddit.frontpage', label: 'reddit', enabled: true },
   { packageName: 'com.facebook.katana', label: 'facebook', enabled: true },
 ];
-
-const mmkvStorage = {
-  getItem: (name: string) => {
-    const value = storage.getString(name);
-    return value ?? null;
-  },
-  setItem: (name: string, value: string) => {
-    storage.set(name, value);
-  },
-  removeItem: (name: string) => {
-    storage.remove(name);
-  },
-};
-
-const getStartOfDay = (date?: Date): number => {
-  const d = date ?? new Date();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-};
-
-const getEndOfDay = (date?: Date): number => {
-  const d = date ?? new Date();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
-};
 
 interface UsageStore {
   // Persisted
@@ -92,57 +70,51 @@ export const useUsageStore = create<UsageStore>()(
           return;
         }
 
-        try {
-          // Fetch today's usage
-          const todayStart = getStartOfDay();
-          const now = Date.now();
-          const rawToday = await getUsageStats(enabledPackages, todayStart, now);
+        const todayStart = getStartOfDay();
+        const now = Date.now();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStart = getStartOfDay(yesterday);
+        const yesterdayEnd = getEndOfDay(yesterday);
 
-          // Map package names to labels
-          const appLabelMap = new Map(
-            trackedApps.map((a) => [a.packageName, a.label]),
-          );
-          const todayUsage: AppUsageData[] = rawToday
-            .map((item) => ({
-              ...item,
-              label: appLabelMap.get(item.packageName) ?? item.packageName,
-            }))
-            .sort((a, b) => b.foregroundTimeMs - a.foregroundTimeMs);
+        const [todayResult, yesterdayResult] = await Promise.allSettled([
+          getUsageStats(enabledPackages, todayStart, now),
+          getUsageStats(enabledPackages, yesterdayStart, yesterdayEnd),
+        ]);
 
-          const totalTimeMs = todayUsage.reduce(
-            (sum, item) => sum + item.foregroundTimeMs,
-            0,
-          );
-          const totalOpens = todayUsage.reduce(
-            (sum, item) => sum + item.openCount,
-            0,
-          );
-
-          // Fetch yesterday's total for comparison
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStart = getStartOfDay(yesterday);
-          const yesterdayEnd = getEndOfDay(yesterday);
-
-          let yesterdayTotalMs: number | null = null;
-          try {
-            const rawYesterday = await getUsageStats(
-              enabledPackages,
-              yesterdayStart,
-              yesterdayEnd,
-            );
-            yesterdayTotalMs = rawYesterday.reduce(
-              (sum, item) => sum + item.foregroundTimeMs,
-              0,
-            );
-          } catch {
-            // Yesterday data is optional
-          }
-
-          set({ todayUsage, yesterdayTotalMs, totalTimeMs, totalOpens });
-        } catch (e: unknown) {
-          if (__DEV__) console.warn('[foxhole] usage refresh failed:', e);
+        if (todayResult.status === 'rejected') {
+          if (__DEV__) console.warn('[foxhole] usage refresh failed:', todayResult.reason);
+          return;
         }
+
+        const appLabelMap = new Map(
+          trackedApps.map((a) => [a.packageName, a.label]),
+        );
+        const todayUsage: AppUsageData[] = todayResult.value
+          .map((item) => ({
+            ...item,
+            label: appLabelMap.get(item.packageName) ?? item.packageName,
+          }))
+          .sort((a, b) => b.foregroundTimeMs - a.foregroundTimeMs);
+
+        const totalTimeMs = todayUsage.reduce(
+          (sum, item) => sum + item.foregroundTimeMs,
+          0,
+        );
+        const totalOpens = todayUsage.reduce(
+          (sum, item) => sum + item.openCount,
+          0,
+        );
+
+        const yesterdayTotalMs =
+          yesterdayResult.status === 'fulfilled'
+            ? yesterdayResult.value.reduce(
+                (sum, item) => sum + item.foregroundTimeMs,
+                0,
+              )
+            : null;
+
+        set({ todayUsage, yesterdayTotalMs, totalTimeMs, totalOpens });
       },
 
       toggleApp: (packageName) => {
@@ -156,7 +128,7 @@ export const useUsageStore = create<UsageStore>()(
     }),
     {
       name: 'usage-store',
-      storage: createJSONStorage(() => mmkvStorage),
+      storage: mmkvJSONStorage,
       partialize: (state) => ({
         trackedApps: state.trackedApps,
         usageAccessGranted: state.usageAccessGranted,

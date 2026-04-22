@@ -252,17 +252,15 @@
       e.stopPropagation();
     });
 
-    // Prevent removal via MutationObserver
+    // Prevent removal via MutationObserver — scope to the overlay's parent only
+    // so we don't fire on every mutation across the whole page.
     focusObserver = new MutationObserver(() => {
       if (!document.getElementById('foxhole-focus-overlay')) {
-        if (document.body) {
-          document.body.appendChild(overlay);
-        } else {
-          document.documentElement.appendChild(overlay);
-        }
+        const parent = document.body || document.documentElement;
+        parent.appendChild(overlay);
       }
     });
-    focusObserver.observe(document.documentElement, { childList: true, subtree: true });
+    focusObserver.observe(overlay.parentNode, { childList: true });
 
     document.documentElement.style.overflow = 'hidden';
     if (document.body) document.body.style.overflow = 'hidden';
@@ -382,17 +380,14 @@
       document.documentElement.appendChild(overlay);
     }
 
-    // Prevent removal
+    // Prevent removal — scope to the overlay's parent only
     const observer = new MutationObserver(() => {
       if (!document.getElementById('foxhole-block-overlay')) {
-        if (document.body) {
-          document.body.appendChild(overlay);
-        } else {
-          document.documentElement.appendChild(overlay);
-        }
+        const parent = document.body || document.documentElement;
+        parent.appendChild(overlay);
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(overlay.parentNode, { childList: true });
 
     // Prevent scrolling
     document.documentElement.style.overflow = 'hidden';

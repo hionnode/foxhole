@@ -78,26 +78,18 @@ const SettingsScreen = () => {
 
   const handleAddPreset = useCallback(() => {
     triggerHaptic();
-    if (presets.length >= 5) {
-      return;
-    }
-    addPreset({
+    const newId = addPreset({
       name: 'new preset',
       workMinutes: 25,
       shortBreakMinutes: 5,
       longBreakMinutes: 15,
       cyclesBeforeLongBreak: 4,
     });
-    // The new preset will be the last one; set it as editing
-    // We need to get the updated presets after addPreset
-    // Since zustand updates synchronously, we can access via getState
-    const updated = usePresetStore.getState().presets;
-    const newest = updated[updated.length - 1];
-    if (newest) {
-      setActivePreset(newest.id);
-      setEditingId(newest.id);
+    if (newId) {
+      setActivePreset(newId);
+      setEditingId(newId);
     }
-  }, [presets.length, addPreset, setActivePreset]);
+  }, [addPreset, setActivePreset]);
 
   return (
     <ScrollView

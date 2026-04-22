@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
-import { formatTime } from '@/utils/formatTime';
+import { formatTime, getSessionTypeLabel } from '@/utils/formatTime';
 import { getSessionDurationMs } from '@/utils/pomodoroEngine';
 import { enableImmersiveMode, disableImmersiveMode } from '@/native/ImmersiveMode';
 import { addTickListener, addCompleteListener } from '@/native/FocusService';
@@ -21,7 +21,6 @@ import { useTimerStore } from '@/stores/timerStore';
 import { usePresetStore } from '@/stores/presetStore';
 import { DigitalTimer } from '@/components/DigitalTimer';
 import { BlockTimer } from '@/components/BlockTimer';
-import type { SessionType } from '@/types';
 import { triggerHaptic } from '@/utils/haptics';
 
 type RootStackParamList = {
@@ -30,17 +29,6 @@ type RootStackParamList = {
 };
 
 type FocusScreenNav = NativeStackNavigationProp<RootStackParamList, 'Focus'>;
-
-const getSessionLabel = (type: SessionType): string => {
-  switch (type) {
-    case 'work':
-      return 'work';
-    case 'short_break':
-      return 'short break';
-    case 'long_break':
-      return 'long break';
-  }
-};
 
 const FocusScreen = () => {
   const navigation = useNavigation<FocusScreenNav>();
@@ -129,38 +117,30 @@ const FocusScreen = () => {
   }
 
   if (showingTransition) {
-    const nextLabel = getSessionLabel(state.currentSession);
-    const nextDuration = formatTime(
-      getSessionDurationMs(state.currentSession, activePreset),
-    );
     const isBreak =
       state.currentSession === 'short_break' ||
       state.currentSession === 'long_break';
+    const action = isBreak
+      ? { label: 'skip', onPress: skipSession }
+      : { label: 'start', onPress: startNextSession };
 
     return (
       <View style={styles.container}>
         <View style={styles.transitionContent}>
-          <Text style={styles.transitionLabel}>{nextLabel}</Text>
-          <Text style={styles.transitionDuration}>{nextDuration}</Text>
-          {isBreak ? (
-            <Pressable
-              onPress={() => { triggerHaptic(); skipSession(); }}
-              style={({ pressed }) => [
-                styles.skipButton,
-                pressed && styles.pressedOpacity,
-              ]}>
-              <Text style={styles.skipText}>skip</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => { triggerHaptic(); startNextSession(); }}
-              style={({ pressed }) => [
-                styles.skipButton,
-                pressed && styles.pressedOpacity,
-              ]}>
-              <Text style={styles.skipText}>start</Text>
-            </Pressable>
-          )}
+          <Text style={styles.transitionLabel}>
+            {getSessionTypeLabel(state.currentSession)}
+          </Text>
+          <Text style={styles.transitionDuration}>
+            {formatTime(getSessionDurationMs(state.currentSession, activePreset))}
+          </Text>
+          <Pressable
+            onPress={() => { triggerHaptic(); action.onPress(); }}
+            style={({ pressed }) => [
+              styles.skipButton,
+              pressed && styles.pressedOpacity,
+            ]}>
+            <Text style={styles.skipText}>{action.label}</Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -181,20 +161,13 @@ const FocusScreen = () => {
           <DigitalTimer remainingMs={state.remainingMs} />
         )}
         {timerDisplayMode === 'digital' && (
-          <>
-            <Text style={styles.sessionLabel}>
-              {getSessionLabel(state.currentSession)}
-            </Text>
-            <Text style={styles.cycleLabel}>
-              round {state.cyclePosition} of {activePreset.cyclesBeforeLongBreak}
-            </Text>
-          </>
-        )}
-        {timerDisplayMode === 'blocks' && (
-          <Text style={styles.cycleLabel}>
-            round {state.cyclePosition} of {activePreset.cyclesBeforeLongBreak}
+          <Text style={styles.sessionLabel}>
+            {getSessionTypeLabel(state.currentSession)}
           </Text>
         )}
+        <Text style={styles.cycleLabel}>
+          round {state.cyclePosition} of {activePreset.cyclesBeforeLongBreak}
+        </Text>
       </View>
       <Pressable
         onPress={showAbandonConfirmation}

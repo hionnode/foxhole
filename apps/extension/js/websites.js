@@ -220,7 +220,7 @@ const Websites = {
 
   // Generate a unique category ID
   generateCategoryId() {
-    return 'cat-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    return Storage.generateId('cat');
   },
 
   // Get remaining time for a domain today (in seconds)

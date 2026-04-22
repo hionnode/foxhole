@@ -1,15 +1,10 @@
 // Habit management and calculations
 
 const Habits = {
-  // Generate a unique ID
-  generateId() {
-    return 'habit-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-  },
-
   // Create a new habit
   createHabit(name, type, target = 1) {
     return {
-      id: this.generateId(),
+      id: Storage.generateId('habit'),
       name: name.trim(),
       type: type,
       target: type === 'binary' ? 1 : Math.max(1, target),

@@ -72,6 +72,8 @@ class FocusService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
+    private var timerNotificationBuilder: NotificationCompat.Builder? = null
+    private var notificationManager: NotificationManager? = null
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -89,6 +91,7 @@ class FocusService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannels()
     }
 
@@ -115,7 +118,7 @@ class FocusService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannels() {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val nm = notificationManager ?: return
 
         // Timer channel — low importance, no sound
         val timerChannel = NotificationChannel(
@@ -233,11 +236,13 @@ class FocusService : Service() {
         stopSelf()
     }
 
-    private fun buildTimerNotification(remainingMs: Long): Notification {
+    private fun formatRemaining(remainingMs: Long): String {
         val minutes = (remainingMs / 1000) / 60
         val seconds = (remainingMs / 1000) % 60
-        val timeStr = String.format("%02d:%02d", minutes, seconds)
+        return String.format("%02d:%02d remaining", minutes, seconds)
+    }
 
+    private fun buildTimerNotification(remainingMs: Long): Notification {
         val tapIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -246,21 +251,23 @@ class FocusService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_TIMER)
+        val builder = NotificationCompat.Builder(this, CHANNEL_TIMER)
             .setContentTitle("foxhole")
-            .setContentText("$timeStr remaining")
+            .setContentText(formatRemaining(remainingMs))
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+
+        timerNotificationBuilder = builder
+        return builder.build()
     }
 
     private fun updateNotification(remainingMs: Long) {
-        val notification = buildTimerNotification(remainingMs)
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIFICATION_ID, notification)
+        val builder = timerNotificationBuilder ?: return
+        builder.setContentText(formatRemaining(remainingMs))
+        notificationManager?.notify(NOTIFICATION_ID, builder.build())
     }
 
     private fun postCompletionNotification() {
@@ -281,8 +288,7 @@ class FocusService : Service() {
             .setContentIntent(pendingIntent)
             .build()
 
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(ALERT_NOTIFICATION_ID, notification)
+        notificationManager?.notify(ALERT_NOTIFICATION_ID, notification)
     }
 
     private fun scheduleAlarmFallback(durationMs: Long) {
@@ -340,6 +346,7 @@ class FocusService : Service() {
     override fun onDestroy() {
         handler.removeCallbacks(tickRunnable)
         releaseWakeLock()
+        timerNotificationBuilder = null
         isRunning = false
         super.onDestroy()
     }

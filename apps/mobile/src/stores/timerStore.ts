@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { PomodoroState, Preset, SessionType } from '@/types';
 import {
   createInitialState,
-  tick,
   complete,
   skip as skipEngine,
   abandon as abandonEngine,
@@ -17,6 +16,10 @@ import {
 } from '@/native/FocusService';
 import { enableDnd, disableDnd } from '@/native/DndManager';
 import { useSessionStore } from './sessionStore';
+
+const warnDev = (e: unknown): void => {
+  if (__DEV__) console.warn('[foxhole]', e);
+};
 
 const logSessionToDb = (
   sessionType: SessionType,
@@ -43,8 +46,6 @@ const logSessionToDb = (
 interface TimerStore {
   state: PomodoroState | null;
   activePreset: Preset | null;
-  intervalId: ReturnType<typeof setInterval> | null;
-  lastTickTime: number | null;
   showingTransition: boolean;
   transitionTimeoutId: ReturnType<typeof setTimeout> | null;
   sessionStartedAt: number | null;
@@ -55,7 +56,6 @@ interface TimerStore {
   abandonSession: () => void;
   skipSession: () => void;
   completeSession: () => void;
-  tickTimer: () => void;
   syncFromNative: () => void;
   updateRemainingMs: (remainingMs: number) => void;
   startNextSession: () => void;
@@ -65,17 +65,12 @@ interface TimerStore {
 export const useTimerStore = create<TimerStore>((set, get) => ({
   state: null,
   activePreset: null,
-  intervalId: null,
-  lastTickTime: null,
   showingTransition: false,
   transitionTimeoutId: null,
   sessionStartedAt: null,
 
   startSession: (preset: Preset) => {
-    const { intervalId, transitionTimeoutId } = get();
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
+    const { transitionTimeoutId } = get();
     if (transitionTimeoutId) {
       clearTimeout(transitionTimeoutId);
     }
@@ -83,41 +78,26 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     const initialState = createInitialState(preset);
     const durationMs = getSessionDurationMs('work', preset);
 
-    // Start native foreground service and DND
-    startFocusService(durationMs, 'work').catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-    enableDnd(true).catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-
-    // Keep JS interval as a fallback for UI updates when native ticks aren't arriving
-    const now = Date.now();
-    const newIntervalId = setInterval(() => get().tickTimer(), 100);
+    startFocusService(durationMs, 'work').catch(warnDev);
+    enableDnd(true).catch(warnDev);
 
     set({
       state: initialState,
       activePreset: preset,
-      intervalId: newIntervalId,
-      lastTickTime: now,
       showingTransition: false,
       transitionTimeoutId: null,
-      sessionStartedAt: now,
+      sessionStartedAt: Date.now(),
     });
   },
 
   pauseSession: () => {
-    const { state, intervalId } = get();
+    const { state } = get();
     if (!state || !state.isRunning || state.isPaused) {
       return;
     }
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-    // Stop the native service on pause (pausing a foreground service is complex)
-    stopFocusService().catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-
-    set({
-      state: pauseEngine(state),
-      intervalId: null,
-      lastTickTime: null,
-    });
+    // Pausing a foreground service is complex; stop and restart on resume
+    stopFocusService().catch(warnDev);
+    set({ state: pauseEngine(state) });
   },
 
   resumeSession: () => {
@@ -126,35 +106,21 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       return;
     }
 
-    // Restart the native service with remaining time
-    startFocusService(state.remainingMs, state.currentSession).catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-
-    const now = Date.now();
-    const newIntervalId = setInterval(() => get().tickTimer(), 100);
-
-    set({
-      state: resumeEngine(state),
-      intervalId: newIntervalId,
-      lastTickTime: now,
-    });
+    startFocusService(state.remainingMs, state.currentSession).catch(warnDev);
+    set({ state: resumeEngine(state) });
   },
 
   abandonSession: () => {
-    const { state, activePreset, intervalId, transitionTimeoutId, sessionStartedAt } = get();
+    const { state, activePreset, transitionTimeoutId, sessionStartedAt } = get();
     if (!state || !activePreset) {
       return;
-    }
-    if (intervalId) {
-      clearInterval(intervalId);
     }
     if (transitionTimeoutId) {
       clearTimeout(transitionTimeoutId);
     }
-    // Stop native service and restore DND
-    stopFocusService().catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-    disableDnd().catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
+    stopFocusService().catch(warnDev);
+    disableDnd().catch(warnDev);
 
-    // Log the abandoned session
     if (sessionStartedAt) {
       const plannedMs = getSessionDurationMs(state.currentSession, activePreset);
       logSessionToDb(
@@ -169,8 +135,6 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
     set({
       state: abandonEngine(state),
-      intervalId: null,
-      lastTickTime: null,
       showingTransition: false,
       transitionTimeoutId: null,
       sessionStartedAt: null,
@@ -178,15 +142,11 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   },
 
   skipSession: () => {
-    const { state, activePreset, intervalId, sessionStartedAt } = get();
+    const { state, activePreset, sessionStartedAt } = get();
     if (!state || !activePreset) {
       return;
     }
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
 
-    // Log the skipped break session
     if (sessionStartedAt) {
       const plannedMs = getSessionDurationMs(state.currentSession, activePreset);
       logSessionToDb(
@@ -202,34 +162,24 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     const nextState = skipEngine(state, activePreset);
     const durationMs = getSessionDurationMs(nextState.currentSession, activePreset);
 
-    // Restart native service with new session
     stopFocusService()
       .then(() => startFocusService(durationMs, nextState.currentSession))
-      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-
-    const now = Date.now();
-    const newIntervalId = setInterval(() => get().tickTimer(), 100);
+      .catch(warnDev);
 
     set({
       state: nextState,
-      intervalId: newIntervalId,
-      lastTickTime: now,
       showingTransition: false,
       transitionTimeoutId: null,
-      sessionStartedAt: now,
+      sessionStartedAt: Date.now(),
     });
   },
 
   completeSession: () => {
-    const { state, activePreset, intervalId, sessionStartedAt } = get();
+    const { state, activePreset, sessionStartedAt } = get();
     if (!state || !activePreset) {
       return;
     }
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
 
-    // Log the completed session
     if (sessionStartedAt) {
       const plannedMs = getSessionDurationMs(state.currentSession, activePreset);
       logSessionToDb(
@@ -250,8 +200,6 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
     set({
       state: nextState,
-      intervalId: null,
-      lastTickTime: null,
       showingTransition: true,
       transitionTimeoutId: timeoutId,
     });
@@ -264,12 +212,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     }
 
     const durationMs = getSessionDurationMs(state.currentSession, activePreset);
-
-    // Start native service for next session
-    startFocusService(durationMs, state.currentSession).catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-
-    const now = Date.now();
-    const newIntervalId = setInterval(() => get().tickTimer(), 100);
+    startFocusService(durationMs, state.currentSession).catch(warnDev);
 
     set({
       state: {
@@ -277,49 +220,24 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
         isRunning: true,
         isPaused: false,
       },
-      intervalId: newIntervalId,
-      lastTickTime: now,
       showingTransition: false,
       transitionTimeoutId: null,
-      sessionStartedAt: now,
-    });
-  },
-
-  tickTimer: () => {
-    const { state, lastTickTime } = get();
-    if (!state || !state.isRunning || state.isPaused || !lastTickTime) {
-      return;
-    }
-
-    const now = Date.now();
-    const elapsed = now - lastTickTime;
-    const newState = tick(state, elapsed);
-
-    if (newState.remainingMs <= 0) {
-      set({ lastTickTime: now });
-      get().completeSession();
-      return;
-    }
-
-    set({
-      state: newState,
-      lastTickTime: now,
+      sessionStartedAt: Date.now(),
     });
   },
 
   syncFromNative: () => {
-    getRemainingTime().then(remainingMs => {
-      const { state } = get();
-      if (!state || !state.isRunning || state.isPaused) {
-        return;
-      }
-      if (remainingMs > 0) {
-        set({
-          state: { ...state, remainingMs },
-          lastTickTime: Date.now(),
-        });
-      }
-    }).catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
+    getRemainingTime()
+      .then((remainingMs) => {
+        const { state } = get();
+        if (!state || !state.isRunning || state.isPaused) {
+          return;
+        }
+        if (remainingMs > 0 && remainingMs !== state.remainingMs) {
+          set({ state: { ...state, remainingMs } });
+        }
+      })
+      .catch(warnDev);
   },
 
   updateRemainingMs: (remainingMs: number) => {
@@ -331,29 +249,23 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       get().completeSession();
       return;
     }
-    set({
-      state: { ...state, remainingMs },
-      lastTickTime: Date.now(),
-    });
+    if (remainingMs === state.remainingMs) {
+      return;
+    }
+    set({ state: { ...state, remainingMs } });
   },
 
   reset: () => {
-    const { intervalId, transitionTimeoutId } = get();
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
+    const { transitionTimeoutId } = get();
     if (transitionTimeoutId) {
       clearTimeout(transitionTimeoutId);
     }
-    // Clean up native resources
-    stopFocusService().catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-    disableDnd().catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
+    stopFocusService().catch(warnDev);
+    disableDnd().catch(warnDev);
 
     set({
       state: null,
       activePreset: null,
-      intervalId: null,
-      lastTickTime: null,
       showingTransition: false,
       transitionTimeoutId: null,
       sessionStartedAt: null,

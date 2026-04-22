@@ -125,6 +125,6 @@ export function mergeWebsiteSettings(local: WebsiteSetting[], remote: WebsiteSet
 }
 
 // Merge user settings: remote wins (last-write-wins)
-export function mergeUserSettings(local: UserSettings, remote: UserSettings): UserSettings {
+export function mergeUserSettings(remote: UserSettings): UserSettings {
   return { ...remote };
 }

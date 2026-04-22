@@ -77,12 +77,15 @@ const App = {
     });
 
     // Start local countdown interval for smooth updates
+    const timerEl = document.getElementById('pomoTimer');
     this.pomodoroLocalInterval = setInterval(() => {
-      if (!this.pomodoroState || this.pomodoroState.status !== 'running') return;
+      if (!timerEl || !this.pomodoroState || this.pomodoroState.status !== 'running') return;
       const elapsed = Math.floor((Date.now() - this.pomodoroState.startedAt) / 1000);
       const remaining = Math.max(0, this.pomodoroState.totalSeconds - elapsed);
-      const timerEl = document.getElementById('pomoTimer');
-      if (timerEl) timerEl.textContent = Pomodoro.formatTimer(remaining);
+      const text = Pomodoro.formatTimer(remaining);
+      if (timerEl.textContent !== text) {
+        timerEl.textContent = text;
+      }
     }, 1000);
   },
 

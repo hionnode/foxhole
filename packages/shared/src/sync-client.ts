@@ -84,7 +84,7 @@ export function serverMerge(
     streakFreezes: mergeStreakFreezes(existing.streakFreezes, incoming.streakFreezes),
     categories: mergeCategories(existing.categories, incoming.categories),
     websiteSettings: mergeWebsiteSettings(existing.websiteSettings, incoming.websiteSettings),
-    settings: mergeUserSettings(existing.settings, incoming.settings),
+    settings: mergeUserSettings(incoming.settings),
     conflicts: presetConflicts,
   };
 }

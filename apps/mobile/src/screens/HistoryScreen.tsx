@@ -5,7 +5,8 @@ import { typography } from '@/theme/typography';
 import { useSessionStore } from '@/stores/sessionStore';
 import { usePresetStore } from '@/stores/presetStore';
 import type { Session } from '@/types';
-import { getLocalDateString } from '@/utils/streakCalculator';
+import { getLocalDateString } from '@/utils/date';
+import { getSessionTypeLabel } from '@/utils/formatTime';
 
 interface SessionSection {
   title: string;
@@ -56,17 +57,6 @@ const formatDuration = (ms: number): string => {
   return `${totalMinutes} min`;
 };
 
-const getSessionTypeLabel = (session: Session): string => {
-  switch (session.sessionType) {
-    case 'work':
-      return 'work';
-    case 'short_break':
-      return 'short break';
-    case 'long_break':
-      return 'long break';
-  }
-};
-
 const getStatusLabel = (session: Session): string | null => {
   if (session.wasSkipped) {
     return 'skipped';
@@ -95,7 +85,7 @@ const SessionRow = React.memo(({ session }: { session: Session }) => {
       </View>
       <View style={styles.sessionBottomRow}>
         <Text style={[styles.sessionType, { color: textColor }]}>
-          {getSessionTypeLabel(session)}
+          {getSessionTypeLabel(session.sessionType)}
         </Text>
         <Text style={[styles.sessionText, { color: textColor }]}>{' \u00b7 '}</Text>
         <Text style={[styles.sessionPreset, { color: textColor }]}>

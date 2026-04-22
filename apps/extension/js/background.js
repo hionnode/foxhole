@@ -2,6 +2,17 @@
 
 importScripts('pomodoro.js');
 
+const formatDate = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const generateId = (prefix) =>
+  `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
 // ============ Pomodoro Timer ============
 
 const PomodoroTimer = {
@@ -122,7 +133,8 @@ const PomodoroTimer = {
       return;
     }
 
-    await this.persistState();
+    // Don't persist every tick — remaining is derived from startedAt/totalSeconds.
+    // Persistence happens on state transitions (start/pause/resume/skip/complete).
     await this.broadcastState();
   },
 
@@ -171,9 +183,9 @@ const PomodoroTimer = {
   async logSession(wasCompleted, wasSkipped) {
     if (!this.state) return;
 
-    const today = this.formatDate(new Date());
+    const today = formatDate(new Date());
     const session = {
-      id: `pomo-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      id: generateId('pomo'),
       sessionType: this.state.sessionType,
       presetName: this.state.presetName,
       durationSeconds: this.state.totalSeconds,
@@ -243,14 +255,6 @@ const PomodoroTimer = {
       this.state.remainingSeconds = Math.max(0, this.state.totalSeconds - elapsed);
     }
     return this.state;
-  },
-
-  formatDate(date) {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   }
 };
 
@@ -396,7 +400,7 @@ const WebsiteTracker = {
     const elapsedSeconds = Math.floor((Date.now() - this.trackingStartTime) / 1000);
     if (elapsedSeconds < 1) return;
 
-    const today = this.formatDate(new Date());
+    const today = formatDate(new Date());
 
     try {
       const result = await chrome.storage.local.get(['websiteEntries']);
@@ -434,10 +438,10 @@ const WebsiteTracker = {
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - 90);
-      const websiteCutoff = this.formatDate(cutoffDate);
+      const websiteCutoff = formatDate(cutoffDate);
 
       cutoffDate.setDate(cutoffDate.getDate() - 310);
-      const habitCutoff = this.formatDate(cutoffDate);
+      const habitCutoff = formatDate(cutoffDate);
 
       const websiteEntries = result.websiteEntries || {};
       const cleanedWebsiteEntries = {};
@@ -467,7 +471,7 @@ const WebsiteTracker = {
   },
 
   async checkTimeLimit(domain) {
-    const today = this.formatDate(new Date());
+    const today = formatDate(new Date());
     const result = await chrome.storage.local.get(['websiteSettings', 'websiteEntries']);
     const settings = result.websiteSettings || {};
     const entries = result.websiteEntries || {};
@@ -535,7 +539,7 @@ const WebsiteTracker = {
     const result = await chrome.storage.local.get(['websiteSettings', 'websiteEntries']);
     const settings = result.websiteSettings || {};
     const entries = result.websiteEntries || {};
-    const today = this.formatDate(new Date());
+    const today = formatDate(new Date());
     const todayEntries = entries[today] || {};
 
     for (const [domain, domainSettings] of Object.entries(settings)) {
@@ -556,14 +560,6 @@ const WebsiteTracker = {
       when: Date.now() + (midnight.getTime() - now.getTime()),
       periodInMinutes: 24 * 60
     });
-  },
-
-  formatDate(date) {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   }
 };
 

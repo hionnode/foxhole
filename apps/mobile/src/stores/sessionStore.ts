@@ -8,21 +8,19 @@ import {
 } from '@/db/queries';
 import {
   getStreakData,
-  getLocalDateString,
   updateStreakOnCompletion,
 } from '@/utils/streakCalculator';
+import {
+  getStartOfDay,
+  getEndOfDay,
+  getLocalDateString,
+} from '@/utils/date';
 import { storage } from './mmkv';
 
 const LAST_REFRESH_DATE_KEY = 'last_refresh_date';
 
-const getStartOfDay = (date?: Date): number => {
-  const d = date ?? new Date();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-};
-
-const getEndOfDay = (date?: Date): number => {
-  const d = date ?? new Date();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+const warnDev = (e: unknown): void => {
+  if (__DEV__) console.warn('[foxhole]', e);
 };
 
 interface SessionStore {
@@ -63,13 +61,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           }));
         }
 
-        // Refresh total count and all sessions
         getTotalSessionCount().then((count) => {
           set({ totalEver: count });
         });
         get().refreshAllSessions();
       })
-      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
+      .catch(warnDev);
   },
 
   refreshTodayCount: () => {
@@ -81,7 +78,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       .then((count) => {
         set({ todayCompletedCount: count });
       })
-      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
+      .catch(warnDev);
   },
 
   refreshAllSessions: () => {
@@ -89,30 +86,25 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       .then((sessions) => {
         set({ allSessions: sessions });
       })
-      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
+      .catch(warnDev);
   },
 
   recalculateStreak: () => {
     const data = getStreakData();
     const today = getLocalDateString();
-
-    // If lastActiveDate is not today or yesterday, streak is broken
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = getLocalDateString(yesterday.getTime());
 
-    if (
+    const isStale =
       data.lastActiveDate !== today &&
       data.lastActiveDate !== yesterdayStr &&
-      data.lastActiveDate !== ''
-    ) {
-      set({ currentStreak: 0, lastActiveDate: data.lastActiveDate });
-    } else {
-      set({
-        currentStreak: data.currentStreak,
-        lastActiveDate: data.lastActiveDate,
-      });
-    }
+      data.lastActiveDate !== '';
+
+    set({
+      currentStreak: isStale ? 0 : data.currentStreak,
+      lastActiveDate: data.lastActiveDate,
+    });
   },
 
   initialize: () => {
@@ -120,29 +112,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return;
     }
 
-    // Check for midnight rollover: if the stored date differs from today,
-    // refresh today's count (which will be 0 for a new day) and recalculate streak
     const today = getLocalDateString();
     const lastRefresh = storage.getString(LAST_REFRESH_DATE_KEY);
     if (lastRefresh !== today) {
       storage.set(LAST_REFRESH_DATE_KEY, today);
     }
 
-    // Load streak data from MMKV (synchronous)
     get().recalculateStreak();
-
-    // Load today's count from DB (async)
     get().refreshTodayCount();
+    get().refreshAllSessions();
 
-    // Load total session count
     getTotalSessionCount()
       .then((count) => {
         set({ totalEver: count });
       })
-      .catch((e: unknown) => { if (__DEV__) console.warn('[foxhole]', e); });
-
-    // Load all sessions for history
-    get().refreshAllSessions();
+      .catch(warnDev);
 
     set({ isInitialized: true });
   },
