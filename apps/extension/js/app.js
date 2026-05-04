@@ -160,11 +160,25 @@ const App = {
     }
   },
 
+  // Request browser fullscreen — must be called from a user gesture handler
+  async requestFocusFullscreen() {
+    const el = document.documentElement;
+    if (!el.requestFullscreen || document.fullscreenElement) return;
+    try {
+      await el.requestFullscreen({ navigationUI: 'hide' });
+    } catch (e) {
+      // user denied or browser blocked — silently ignore
+    }
+  },
+
   bindPomodoroEvents() {
     // Start button
     const startBtn = document.getElementById('pomoStartBtn');
     if (startBtn) {
       startBtn.addEventListener('click', async () => {
+        // Request fullscreen synchronously within the click gesture; browsers
+        // reject requestFullscreen() if it isn't tied to a user activation.
+        this.requestFocusFullscreen();
         try {
           await chrome.runtime.sendMessage({
             type: 'START_POMODORO',
@@ -214,6 +228,9 @@ const App = {
           destructive: true
         });
         if (confirmed) {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
           try {
             await chrome.runtime.sendMessage({ type: 'ABANDON_POMODORO' });
           } catch (e) {
