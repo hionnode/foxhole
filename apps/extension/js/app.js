@@ -122,6 +122,7 @@ const App = {
 
     overlay.classList.add('active');
     overlay.classList.remove('peeking');
+    overlay.classList.toggle('is-break', state.sessionType !== 'work');
     if (section) section.style.display = 'none';
 
     // Timer

@@ -1175,6 +1175,22 @@ input[type="color"] {
   right: 0;
   bottom: 0;
   background: var(--bg);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(60, 56, 54, 0.25) 31px,
+      rgba(60, 56, 54, 0.25) 32px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 31px,
+      rgba(60, 56, 54, 0.25) 31px,
+      rgba(60, 56, 54, 0.25) 32px
+    );
+  background-attachment: fixed;
   z-index: 100;
   flex-direction: column;
   align-items: center;
@@ -1196,45 +1212,47 @@ input[type="color"] {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 
 .pomo-session-label {
-  font-size: 12px;
+  font-size: 32px;
+  color: var(--text-muted);
+  letter-spacing: 4px;
+  text-transform: lowercase;
+}
+
+.pomo-overlay.is-break .pomo-session-label {
+  color: var(--text-primary);
+}
+
+.pomo-timer {
+  font-size: clamp(128px, 22vw, 280px);
+  font-family: '0xProto', monospace;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -4px;
+}
+
+.pomo-cycle {
+  font-size: 16px;
   color: var(--text-muted);
   letter-spacing: 2px;
 }
 
-.pomo-timer {
-  font-size: 96px;
-  font-family: '0xProto', monospace;
-  color: var(--text-primary);
-  line-height: 1;
-  letter-spacing: -2px;
-}
-
-@media (max-width: 600px) {
-  .pomo-timer { font-size: 72px; }
-}
-
-.pomo-cycle {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .pomo-controls {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 16px;
+  margin-top: 32px;
 }
 
 .pomo-btn {
   background: none;
   border: 1px solid var(--border);
   border-radius: 2px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: '0xProto', monospace;
-  padding: 8px 16px;
+  padding: 10px 20px;
   cursor: pointer;
   transition: opacity 0.1s ease;
   text-transform: lowercase;
