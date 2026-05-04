@@ -1268,6 +1268,13 @@ input[type="color"] {
   border-color: var(--border);
 }
 
+.pomo-btn-primary {
+  color: var(--text-primary);
+  border: 2px solid var(--text-primary);
+  font-size: 18px;
+  padding: 12px 28px;
+}
+
 .pomo-btn:hover { opacity: 0.9; }
 .pomo-btn:focus-visible {
   outline: 1px solid var(--accent);

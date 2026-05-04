@@ -85,8 +85,29 @@ const PomodoroTimer = {
     await this.broadcastState();
   },
 
+  // Manually begin a session that's queued in pending_start (after a break).
+  async startNext() {
+    if (!this.state || this.state.status !== 'pending_start') return;
+
+    this.state.status = 'running';
+    this.state.startedAt = Date.now();
+    this.state.totalSeconds = this.state.remainingSeconds;
+    this.state.pausedAt = null;
+    await this.persistState();
+    this.startTickAlarm();
+    await this.broadcastState();
+
+    // Distraction sites stay unblocked through pending_start; block them now
+    // that work is actually running.
+    if (this.state.sessionType === 'work') {
+      await this.broadcastFocusBlock();
+    }
+  },
+
   async skip() {
     if (!this.state || this.state.status === 'idle') return;
+    // Skipping a queued (not-yet-started) session is meaningless — use abandon.
+    if (this.state.status === 'pending_start') return;
 
     const wasWork = this.state.sessionType === 'work';
     await this.logSession(false, true);
@@ -106,7 +127,11 @@ const PomodoroTimer = {
     if (!this.state || this.state.status === 'idle') return;
 
     const wasWork = this.state.sessionType === 'work';
-    await this.logSession(false, false);
+    // pending_start means the queued session was never actually started, so
+    // don't log it as an abandoned session — there's nothing to abandon yet.
+    if (this.state.status !== 'pending_start') {
+      await this.logSession(false, false);
+    }
 
     this.state = null;
     this.stopTickAlarm();
@@ -146,7 +171,14 @@ const PomodoroTimer = {
 
     // Compute next session
     this.state = Pomodoro.complete(this.state, this.state.preset);
-    this.state.startedAt = Date.now();
+    const nextIsPendingStart = this.state.status === 'pending_start';
+    if (nextIsPendingStart) {
+      // After a break, hold here until the user manually clicks begin.
+      this.stopTickAlarm();
+      this.state.startedAt = null;
+    } else {
+      this.state.startedAt = Date.now();
+    }
     await this.persistState();
     await this.broadcastState();
 
@@ -156,7 +188,7 @@ const PomodoroTimer = {
     const title = wasWork ? 'session complete' : 'break over';
     const body = wasWork
       ? `take a ${nextLabel}. ${nextMin}m.`
-      : `time to focus. ${nextMin}m.`;
+      : `tap begin to focus. ${nextMin}m.`;
 
     try {
       chrome.notifications.create(`pomo-${Date.now()}`, {
@@ -170,12 +202,14 @@ const PomodoroTimer = {
       // notifications might not be available
     }
 
-    // Unblock sites when work ends, block when work starts
+    // Unblock distraction sites when a work session ends. We only block when
+    // work *starts running* — pending_start is a queued (paused) state, so we
+    // hold off on blocking until the user clicks begin (handled in startNext).
     if (wasWork) {
       // Clear justified domains when work session ends
       await chrome.storage.local.remove('pomodoroAllowed');
       await this.broadcastFocusUnblock();
-    } else {
+    } else if (!nextIsPendingStart) {
       await this.broadcastFocusBlock();
     }
   },
@@ -586,6 +620,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === 'RESUME_POMODORO') {
     PomodoroTimer.resume().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message.type === 'START_NEXT_POMODORO') {
+    PomodoroTimer.startNext().then(() => sendResponse({ ok: true }));
     return true;
   }
   if (message.type === 'SKIP_POMODORO') {

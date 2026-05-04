@@ -120,9 +120,12 @@ const App = {
     const section = document.getElementById('pomoSection');
     if (!overlay) return;
 
+    const isPending = state.status === 'pending_start';
+
     overlay.classList.add('active');
     overlay.classList.remove('peeking');
     overlay.classList.toggle('is-break', state.sessionType !== 'work');
+    overlay.classList.toggle('is-pending', isPending);
     if (section) section.style.display = 'none';
 
     // Timer
@@ -147,16 +150,24 @@ const App = {
       cycleEl.textContent = `round ${state.cyclePosition} of ${state.preset.cyclesBeforeLongBreak}`;
     }
 
-    // Pause button
+    // Begin button — only when waiting for the user to start the next session
+    const beginBtn = document.getElementById('pomoBeginBtn');
+    if (beginBtn) {
+      beginBtn.style.display = isPending ? '' : 'none';
+      beginBtn.textContent = `begin ${Pomodoro.formatSessionType(state.sessionType)}`;
+    }
+
+    // Pause button — hidden while waiting to begin
     const pauseBtn = document.getElementById('pomoPauseBtn');
     if (pauseBtn) {
+      pauseBtn.style.display = isPending ? 'none' : '';
       pauseBtn.textContent = state.status === 'paused' ? 'resume' : 'pause';
     }
 
-    // Skip button (only during breaks)
+    // Skip button (only during a running/paused break)
     const skipBtn = document.getElementById('pomoSkipBtn');
     if (skipBtn) {
-      skipBtn.style.display = (state.sessionType !== 'work') ? '' : 'none';
+      skipBtn.style.display = (!isPending && state.sessionType !== 'work') ? '' : 'none';
     }
   },
 
@@ -186,6 +197,21 @@ const App = {
           });
         } catch (e) {
           Toast.error('failed to start timer');
+        }
+      });
+    }
+
+    // Begin button (manual start after a break)
+    const beginBtn = document.getElementById('pomoBeginBtn');
+    if (beginBtn) {
+      beginBtn.addEventListener('click', async () => {
+        // Re-enter fullscreen synchronously inside the click — required by
+        // browsers in case the user pressed Esc during the break.
+        this.requestFocusFullscreen();
+        try {
+          await chrome.runtime.sendMessage({ type: 'START_NEXT_POMODORO' });
+        } catch (e) {
+          Toast.error('failed to start session');
         }
       });
     }

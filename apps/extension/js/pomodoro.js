@@ -38,6 +38,8 @@ const Pomodoro = {
   // Compute next state after a session completes
   complete(state, preset) {
     const next = { ...state };
+    const completedFromBreak =
+      state.sessionType === 'short_break' || state.sessionType === 'long_break';
 
     if (state.sessionType === 'work') {
       next.totalWorkCompleted = state.totalWorkCompleted + 1;
@@ -57,7 +59,10 @@ const Pomodoro = {
     const duration = this.getSessionDurationSeconds(next.sessionType, preset);
     next.remainingSeconds = duration;
     next.totalSeconds = duration;
-    next.status = 'running';
+    // Breaks auto-flow into work as 'pending_start' so the user must click to
+    // begin focusing. Work auto-flows into a break in 'running' state — rest
+    // is reactive, not opt-in.
+    next.status = completedFromBreak ? 'pending_start' : 'running';
     next.startedAt = null;
     next.pausedAt = null;
 
